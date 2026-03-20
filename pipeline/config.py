@@ -30,8 +30,9 @@ def create_converter() -> DocumentConverter:
         repo_id="ibm-granite/granite-vision-3.3-2b",
         prompt="Describe the image in three sentences. Be concise and accurate.",
         generation_config={
-            "max_new_tokens": 200,
-            "do_sample": False,
+            "max_new_tokens": 100,
+            "do_sample": True,
+            "temperature": 0.2,
         },
     )
     pipeline_options.images_scale = 2.0
