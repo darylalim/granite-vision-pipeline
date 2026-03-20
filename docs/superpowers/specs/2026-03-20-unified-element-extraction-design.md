@@ -43,10 +43,13 @@ Replace the `pictures`-only JSON output with a unified `elements` array. Each el
 
 **Key decisions:**
 
+- `element_number` is a globally sequential counter across all element types (not per-type). Pictures are numbered first, then tables continue the sequence.
 - Elements ordered by type (pictures first, then tables), not document order. Docling exposes them as separate lists; interleaving by page position adds complexity not needed yet.
 - `content` is type-specific: pictures get `description`, tables get `markdown` + `data` (columns/rows).
 - `document_info` gains `num_tables` alongside `num_pictures`.
-- Table `data` uses a simple columns+rows structure derived from `TableItem.export_to_dataframe()`.
+- Table `data` uses a simple columns+rows structure derived from `TableItem.export_to_dataframe()`. Column names are always strings — integer indices from headerless tables are converted via `str()`.
+- Empty tables produce `{"markdown": "", "data": {"columns": [], "rows": []}}`.
+- This is a breaking change to the JSON output (the `pictures` key is removed). Acceptable at v0.1.0 with no known downstream consumers.
 
 ---
 
@@ -55,9 +58,9 @@ Replace the `pictures`-only JSON output with a unified `elements` array. Each el
 ### `pipeline/output.py`
 
 - `get_description(pic)` — unchanged.
-- New `get_table_content(table, doc)` — calls `table.export_to_markdown(doc=doc)` and `table.export_to_dataframe(doc=doc)`, converts the DataFrame to `{"columns": [...], "rows": [[...], ...]}`.
+- New `get_table_content(table, doc)` — calls `table.export_to_markdown(doc=doc)` and `table.export_to_dataframe(doc=doc)`, converts the DataFrame to `{"columns": [...], "rows": [[...], ...]}`. Column names are always converted to strings.
 - `build_output(doc, duration_s)` — refactored to iterate pictures and tables, calling `build_element()` for each, returning the unified structure.
-- New `build_element(item, doc, element_number, element_type)` — produces the common dict shape with type-specific content.
+- New `build_element(item, doc, element_number, element_type)` — produces the common dict shape with type-specific content. Dispatches by `element_type`: `"picture"` calls `get_description(item)`, `"table"` calls `get_table_content(item, doc)`. Both types use `item.caption_text(doc=doc)` for captions (requires `doc`).
 
 ### `pipeline/__init__.py`
 
@@ -65,7 +68,7 @@ Replace the `pictures`-only JSON output with a unified `elements` array. Each el
 
 ### `pipeline/config.py`
 
-- No changes. Docling parses tables by default; `do_picture_description` only controls the VLM pass on pictures.
+- Add `pipeline_options.generate_table_images = True` so that `table.get_image(doc)` returns table images for UI display. Docling defaults this to `False`.
 
 ---
 
@@ -73,6 +76,7 @@ Replace the `pictures`-only JSON output with a unified `elements` array. Each el
 
 ### `streamlit_app.py`
 
+- Spinner text updated: "Extracting content..." (covers both pictures and tables).
 - Metrics row: 3 columns — pictures count, tables count, duration.
 - Download button uses the new unified output structure.
 - Element display loop: iterate `doc.pictures` then `doc.tables`, each in an expander labeled by type and number (e.g., "Picture 1", "Table 3").
