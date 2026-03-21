@@ -39,7 +39,9 @@ def test_render_pdf_pages_images_are_rgb() -> None:
 
 
 def test_parse_doctags_returns_docling_document() -> None:
-    doctags = "<doctag><text><loc_50><loc_50><loc_450><loc_100>Hello world</text></doctag>"
+    doctags = (
+        "<doctag><text><loc_50><loc_50><loc_450><loc_100>Hello world</text></doctag>"
+    )
     image = Image.new("RGB", (500, 500), (255, 255, 255))
     result = parse_doctags(doctags, image)
     assert isinstance(result, DoclingDocument)
