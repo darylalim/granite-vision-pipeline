@@ -87,6 +87,32 @@ def _sample_points_from_mask(
     return torch.stack([x, y], dim=1)
 
 
+def sample_points(
+    mask: torch.Tensor,
+    num_pos: int = 15,
+    num_neg: int = 10,
+    seed: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Sample positive and negative points from a binary mask.
+
+    Returns (points, labels) where points are (x, y) coordinates
+    and labels are 1 for positive, 0 for negative.
+    When seed is None, sampling is non-deterministic.
+    """
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    pos_coords = _sample_points_from_mask(mask, num_pos, is_positive=True)
+    neg_coords = _sample_points_from_mask(mask, num_neg, is_positive=False)
+
+    pos_labels = torch.ones(pos_coords.shape[0], dtype=torch.long, device=mask.device)
+    neg_labels = torch.zeros(neg_coords.shape[0], dtype=torch.long, device=mask.device)
+
+    points = torch.cat([pos_coords, neg_coords], dim=0)
+    labels = torch.cat([pos_labels, neg_labels], dim=0)
+    return points, labels
+
+
 def compute_logits_from_mask(
     mask: torch.Tensor,
     eps: float = 1e-3,
@@ -130,29 +156,3 @@ def draw_mask(mask: Image.Image, image: Image.Image) -> Image.Image:
     red_overlay.putalpha(alpha)
     composite = Image.alpha_composite(image.convert("RGBA"), red_overlay)
     return composite
-
-
-def sample_points(
-    mask: torch.Tensor,
-    num_pos: int = 15,
-    num_neg: int = 10,
-    seed: int | None = None,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Sample positive and negative points from a binary mask.
-
-    Returns (points, labels) where points are (x, y) coordinates
-    and labels are 1 for positive, 0 for negative.
-    When seed is None, sampling is non-deterministic.
-    """
-    if seed is not None:
-        torch.manual_seed(seed)
-
-    pos_coords = _sample_points_from_mask(mask, num_pos, is_positive=True)
-    neg_coords = _sample_points_from_mask(mask, num_neg, is_positive=False)
-
-    pos_labels = torch.ones(pos_coords.shape[0], dtype=torch.long, device=mask.device)
-    neg_labels = torch.zeros(neg_coords.shape[0], dtype=torch.long, device=mask.device)
-
-    points = torch.cat([pos_coords, neg_coords], dim=0)
-    labels = torch.cat([pos_labels, neg_labels], dim=0)
-    return points, labels
