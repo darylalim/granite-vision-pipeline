@@ -54,11 +54,15 @@ def prepare_mask(
     """
     t = torch.as_tensor(mask).reshape((patch_h, patch_w))
     t = t.gt(0).to(dtype=torch.float32)
-    t = F.interpolate(
-        t[None, None],
-        size=(size[1], size[0]),
-        mode="nearest",
-    ).squeeze()
+    t = (
+        F.interpolate(
+            t[None, None],
+            size=(size[1], size[0]),
+            mode="nearest",
+        )
+        .squeeze(0)
+        .squeeze(0)
+    )
     return t
 
 
