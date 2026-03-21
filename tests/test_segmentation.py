@@ -2,7 +2,7 @@
 
 import torch
 
-from pipeline.segmentation import extract_segmentation, prepare_mask
+from pipeline.segmentation import extract_segmentation, prepare_mask, sample_points
 
 
 # --- extract_segmentation tests ---
@@ -71,3 +71,49 @@ def test_prepare_mask_thresholding() -> None:
 
     result_one = prepare_mask([1, 1, 1, 1], patch_h=2, patch_w=2, size=(4, 4))
     assert result_one.sum().item() == 16.0
+
+
+# --- sample_points tests ---
+
+
+def test_sample_points_counts() -> None:
+    mask = torch.zeros(10, 10)
+    mask[:5, :5] = 1.0
+    points, labels = sample_points(mask, num_pos=5, num_neg=3, seed=42)
+    assert points.shape == (8, 2)
+    assert labels.shape == (8,)
+    assert (labels == 1).sum().item() == 5
+    assert (labels == 0).sum().item() == 3
+
+
+def test_sample_points_within_bounds() -> None:
+    mask = torch.zeros(20, 30)
+    mask[5:15, 10:20] = 1.0
+    points, labels = sample_points(mask, num_pos=10, num_neg=5, seed=42)
+    assert (points[:, 0] >= 0).all() and (points[:, 0] < 30).all()  # x < width
+    assert (points[:, 1] >= 0).all() and (points[:, 1] < 20).all()  # y < height
+
+
+def test_sample_points_deterministic_with_seed() -> None:
+    mask = torch.zeros(10, 10)
+    mask[:5, :] = 1.0
+    p1, l1 = sample_points(mask, seed=123)
+    p2, l2 = sample_points(mask, seed=123)
+    assert torch.equal(p1, p2)
+    assert torch.equal(l1, l2)
+
+
+def test_sample_points_all_zero_mask() -> None:
+    mask = torch.zeros(10, 10)
+    points, labels = sample_points(mask, num_pos=5, num_neg=3, seed=42)
+    # No foreground -> 0 positive points, 3 negative points
+    assert (labels == 1).sum().item() == 0
+    assert (labels == 0).sum().item() == 3
+
+
+def test_sample_points_all_one_mask() -> None:
+    mask = torch.ones(10, 10)
+    points, labels = sample_points(mask, num_pos=5, num_neg=3, seed=42)
+    # No background -> 5 positive points, 0 negative points
+    assert (labels == 1).sum().item() == 5
+    assert (labels == 0).sum().item() == 0

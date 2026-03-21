@@ -55,3 +55,58 @@ def prepare_mask(
         mode="nearest",
     ).squeeze()
     return t
+
+
+def _sample_points_from_mask(
+    mask: torch.Tensor,
+    num_points: int,
+    is_positive: bool,
+) -> torch.Tensor:
+    """Sample point coordinates from inside or outside the mask."""
+    if num_points <= 0:
+        return torch.empty((0, 2), dtype=torch.long, device=mask.device)
+
+    m_bool = mask.bool()
+    h, w = m_bool.shape
+    target = m_bool if is_positive else ~m_bool
+
+    idx_all = torch.arange(h * w, device=mask.device)
+    target_indices = idx_all[target.view(-1)]
+
+    if len(target_indices) == 0:
+        return torch.empty((0, 2), dtype=torch.long, device=mask.device)
+
+    rand_indices = torch.randint(
+        low=0, high=len(target_indices), size=(num_points,), device=mask.device
+    )
+    sampled = target_indices[rand_indices]
+
+    y = sampled // w
+    x = sampled % w
+    return torch.stack([x, y], dim=1)
+
+
+def sample_points(
+    mask: torch.Tensor,
+    num_pos: int = 15,
+    num_neg: int = 10,
+    seed: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Sample positive and negative points from a binary mask.
+
+    Returns (points, labels) where points are (x, y) coordinates
+    and labels are 1 for positive, 0 for negative.
+    When seed is None, sampling is non-deterministic.
+    """
+    if seed is not None:
+        torch.manual_seed(seed)
+
+    pos_coords = _sample_points_from_mask(mask, num_pos, is_positive=True)
+    neg_coords = _sample_points_from_mask(mask, num_neg, is_positive=False)
+
+    pos_labels = torch.ones(pos_coords.shape[0], dtype=torch.long, device=mask.device)
+    neg_labels = torch.zeros(neg_coords.shape[0], dtype=torch.long, device=mask.device)
+
+    points = torch.cat([pos_coords, neg_coords], dim=0)
+    labels = torch.cat([pos_labels, neg_labels], dim=0)
+    return points, labels
