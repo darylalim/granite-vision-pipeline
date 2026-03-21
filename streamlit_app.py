@@ -11,7 +11,7 @@ from pipeline import build_output, convert, create_converter, get_description
 converter = st.cache_resource(create_converter)
 
 st.title("Granite Vision Pipeline")
-st.write("Describe pictures in PDF documents using IBM Granite Vision.")
+st.write("Extract and describe pictures and tables in PDF documents using IBM Granite Vision.")
 
 uploaded_file = st.file_uploader("Upload file", type=["pdf"])
 
