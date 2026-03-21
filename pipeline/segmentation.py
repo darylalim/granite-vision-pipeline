@@ -2,6 +2,9 @@
 
 import re
 
+import torch
+import torch.nn.functional as F
+
 
 def extract_segmentation(
     text: str,
@@ -28,3 +31,27 @@ def extract_segmentation(
     elif len(mask) > total_size:
         mask = mask[:total_size]
     return mask
+
+
+def prepare_mask(
+    mask: list[int],
+    patch_h: int,
+    patch_w: int,
+    size: tuple[int, int],
+) -> torch.Tensor:
+    """Reshape flat mask to 2D, threshold to binary, interpolate to image size.
+
+    Args:
+        mask: Flat integer mask from extract_segmentation.
+        patch_h: Patch grid height.
+        patch_w: Patch grid width.
+        size: Target (width, height) of the original image.
+    """
+    t = torch.as_tensor(mask).reshape((patch_h, patch_w))
+    t = t.gt(0).to(dtype=torch.float32)
+    t = F.interpolate(
+        t[None, None],
+        size=(size[1], size[0]),
+        mode="nearest",
+    ).squeeze()
+    return t
