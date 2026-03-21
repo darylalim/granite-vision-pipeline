@@ -5,6 +5,7 @@ import re
 import torch
 import torch.nn.functional as F
 from PIL import Image
+from transformers import AutoModelForVision2Seq, AutoProcessor, SamModel, SamProcessor
 
 
 def extract_segmentation(
@@ -156,3 +157,137 @@ def draw_mask(mask: Image.Image, image: Image.Image) -> Image.Image:
     red_overlay.putalpha(alpha)
     composite = Image.alpha_composite(image.convert("RGBA"), red_overlay)
     return composite
+
+
+def create_granite_model(
+    device: str | None = None,
+) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
+    """Load Granite Vision 3.3 2B for segmentation.
+
+    When device is None, auto-detects: CUDA if available, else CPU.
+    MPS is excluded due to limited operator support in SAM/transformers.
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    model_path = "ibm-granite/granite-vision-3.3-2b"
+    processor = AutoProcessor.from_pretrained(model_path)
+    model = AutoModelForVision2Seq.from_pretrained(model_path).to(device)
+    return processor, model
+
+
+def create_sam_model(
+    device: str | None = None,
+) -> tuple[SamProcessor, SamModel]:
+    """Load SAM ViT-Huge for mask refinement.
+
+    When device is None, auto-detects: CUDA if available, else CPU.
+    MPS is excluded due to limited operator support in SAM/transformers.
+    """
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    model_path = "facebook/sam-vit-huge"
+    processor = SamProcessor.from_pretrained(model_path)
+    model = SamModel.from_pretrained(model_path).to(device)
+    return processor, model
+
+
+def refine_with_sam(
+    mask: torch.Tensor,
+    image: Image.Image,
+    sam: tuple[SamProcessor, SamModel],
+) -> torch.Tensor:
+    """Run SAM inference to refine a coarse mask.
+
+    Returns refined binary mask tensor at original image resolution.
+    """
+    sam_processor, sam_model = sam
+    device = next(sam_model.parameters()).device
+
+    input_points, input_labels = sample_points(mask)
+    logits = compute_logits_from_mask(mask)
+
+    sam_inputs = sam_processor(
+        image,
+        input_points=input_points.unsqueeze(0).float().numpy(),
+        input_labels=input_labels.unsqueeze(0).numpy(),
+        return_tensors="pt",
+    ).to(device)
+
+    image_positional_embeddings = sam_model.get_image_wide_positional_embeddings()
+
+    with torch.inference_mode():
+        embeddings = sam_model.get_image_embeddings(sam_inputs["pixel_values"])
+        sparse_embeddings, dense_embeddings = sam_model.prompt_encoder(
+            input_points=sam_inputs["input_points"],
+            input_labels=sam_inputs["input_labels"],
+            input_masks=logits.unsqueeze(0).to(device),
+            input_boxes=None,
+        )
+        segmentation_maps, _, _ = sam_model.mask_decoder(
+            image_embeddings=embeddings,
+            image_positional_embeddings=image_positional_embeddings,
+            sparse_prompt_embeddings=sparse_embeddings,
+            dense_prompt_embeddings=dense_embeddings,
+            multimask_output=False,
+        )
+
+    post_processed = sam_processor.post_process_masks(
+        segmentation_maps.cpu(),
+        sam_inputs["original_sizes"].cpu(),
+        sam_inputs["reshaped_input_sizes"].cpu(),
+    )
+    # post_process_masks returns logits; threshold at 0.0 for binary mask
+    return (post_processed[0].squeeze() > 0.0).to(torch.uint8)
+
+
+def segment(
+    image: Image.Image,
+    prompt: str,
+    granite: tuple[AutoProcessor, AutoModelForVision2Seq],
+    sam: tuple[SamProcessor, SamModel],
+) -> Image.Image | None:
+    """Run full segmentation pipeline.
+
+    Converts input to RGB. Returns mask as PIL Image (mode "L",
+    0=background, 255=foreground) or None if no <seg> tags found.
+    """
+    image = image.convert("RGB")
+    granite_processor, granite_model = granite
+    device = next(granite_model.parameters()).device
+
+    conversation = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {
+                    "type": "text",
+                    "text": f"seg: Could you segment the '{prompt}' in the image? "
+                    "Respond with the segmentation mask",
+                },
+            ],
+        },
+    ]
+
+    inputs = granite_processor.apply_chat_template(
+        conversation,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(device)
+
+    with torch.inference_mode():
+        output = granite_model.generate(**inputs, max_new_tokens=8192)
+
+    decoded = granite_processor.decode(output[0], skip_special_tokens=True)
+
+    flat_mask = extract_segmentation(decoded)
+    if flat_mask is None:
+        return None
+
+    coarse_mask = prepare_mask(flat_mask, patch_h=24, patch_w=24, size=image.size)
+    refined_mask = refine_with_sam(coarse_mask, image, sam)
+
+    pil_mask = Image.fromarray((refined_mask * 255).numpy(), mode="L")
+    return pil_mask
