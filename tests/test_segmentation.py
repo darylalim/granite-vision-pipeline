@@ -1,9 +1,11 @@
 """Tests for the segmentation module."""
 
 import torch
+from PIL import Image
 
 from pipeline.segmentation import (
     compute_logits_from_mask,
+    draw_mask,
     extract_segmentation,
     prepare_mask,
     sample_points,
@@ -145,3 +147,39 @@ def test_compute_logits_padding() -> None:
     mask = torch.zeros(200, 100)
     result = compute_logits_from_mask(mask)
     assert result.shape == (1, 256, 256)
+
+
+# --- draw_mask tests ---
+
+
+def test_draw_mask_output_mode() -> None:
+    mask = Image.new("L", (50, 50), 255)
+    image = Image.new("RGB", (50, 50), (100, 100, 100))
+    result = draw_mask(mask, image)
+    assert result.mode == "RGBA"
+
+
+def test_draw_mask_dimensions() -> None:
+    mask = Image.new("L", (80, 60), 0)
+    image = Image.new("RGB", (80, 60), (0, 0, 0))
+    result = draw_mask(mask, image)
+    assert result.size == (80, 60)
+
+
+def test_draw_mask_alpha_varies_with_mask() -> None:
+    # Left half = foreground (255), right half = background (0)
+    mask = Image.new("L", (100, 100), 0)
+    for y in range(100):
+        for x in range(50):
+            mask.putpixel((x, y), 255)
+    image = Image.new("RGB", (100, 100), (100, 100, 100))
+    result = draw_mask(mask, image)
+
+    # Foreground pixel (x=10) should have red tint with nonzero alpha overlay
+    fg_pixel = result.getpixel((10, 50))
+    # Background pixel (x=90) should be untouched
+    bg_pixel = result.getpixel((90, 50))
+    # Foreground red channel should be higher than background red channel
+    assert fg_pixel[0] > bg_pixel[0]
+    # Foreground should be semi-transparent (not fully opaque red)
+    assert fg_pixel[0] < 255

@@ -4,6 +4,7 @@ import re
 
 import torch
 import torch.nn.functional as F
+from PIL import Image
 
 
 def extract_segmentation(
@@ -111,6 +112,24 @@ def compute_logits_from_mask(
     logits = logits.squeeze(1)
 
     return logits
+
+
+def draw_mask(mask: Image.Image, image: Image.Image) -> Image.Image:
+    """Overlay mask on image as red semi-transparent composite.
+
+    Args:
+        mask: Binary mask (mode "L", 0=background, 255=foreground).
+        image: Original image.
+
+    Returns:
+        RGBA image with red overlay where mask is foreground.
+    """
+    # Scale mask to semi-transparent alpha (0 -> 0, 255 -> 50)
+    alpha = mask.point(lambda p: 50 if p > 0 else 0)
+    red_overlay = Image.new("RGBA", image.size, (255, 0, 0, 255))
+    red_overlay.putalpha(alpha)
+    composite = Image.alpha_composite(image.convert("RGBA"), red_overlay)
+    return composite
 
 
 def sample_points(
