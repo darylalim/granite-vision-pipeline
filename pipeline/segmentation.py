@@ -70,6 +70,7 @@ def _sample_points_from_mask(
     mask: torch.Tensor,
     num_points: int,
     is_positive: bool,
+    generator: torch.Generator | None = None,
 ) -> torch.Tensor:
     """Sample point coordinates from inside or outside the mask."""
     if num_points <= 0:
@@ -86,7 +87,11 @@ def _sample_points_from_mask(
         return torch.empty((0, 2), dtype=torch.long, device=mask.device)
 
     rand_indices = torch.randint(
-        low=0, high=len(target_indices), size=(num_points,), device=mask.device
+        low=0,
+        high=len(target_indices),
+        size=(num_points,),
+        device=mask.device,
+        generator=generator,
     )
     sampled = target_indices[rand_indices]
 
@@ -107,11 +112,13 @@ def sample_points(
     and labels are 1 for positive, 0 for negative.
     When seed is None, sampling is non-deterministic.
     """
+    generator: torch.Generator | None = None
     if seed is not None:
-        torch.manual_seed(seed)
+        generator = torch.Generator(device=mask.device)
+        generator.manual_seed(seed)
 
-    pos_coords = _sample_points_from_mask(mask, num_pos, is_positive=True)
-    neg_coords = _sample_points_from_mask(mask, num_neg, is_positive=False)
+    pos_coords = _sample_points_from_mask(mask, num_pos, True, generator)
+    neg_coords = _sample_points_from_mask(mask, num_neg, False, generator)
 
     pos_labels = torch.ones(pos_coords.shape[0], dtype=torch.long, device=mask.device)
     neg_labels = torch.zeros(neg_coords.shape[0], dtype=torch.long, device=mask.device)
