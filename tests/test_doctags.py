@@ -7,7 +7,13 @@ import torch
 from docling_core.types.doc.document import DoclingDocument
 from PIL import Image
 
-from pipeline.doctags import export_markdown, parse_doctags, render_pdf_pages
+from pipeline.doctags import (
+    create_doctags_model,
+    export_markdown,
+    generate_doctags,
+    parse_doctags,
+    render_pdf_pages,
+)
 
 TEST_PDF = str(Path(__file__).parent / "data" / "pdf" / "test_pictures.pdf")
 
@@ -62,7 +68,6 @@ def test_parse_doctags_returns_none_for_missing_doctag_tags() -> None:
 def test_parse_doctags_handles_malformed_content() -> None:
     doctags = "<doctag>this is not valid doctags content</doctag>"
     image = Image.new("RGB", (100, 100), (255, 255, 255))
-    # Should either return a DoclingDocument or None, but not raise
     result = parse_doctags(doctags, image)
     assert result is None or isinstance(result, DoclingDocument)
 
@@ -85,8 +90,6 @@ def test_create_doctags_model_loads_correct_model(
     mock_processor_cls: MagicMock,
     mock_model_cls: MagicMock,
 ) -> None:
-    from pipeline.doctags import create_doctags_model
-
     processor, model = create_doctags_model(device="cpu")
 
     mock_processor_cls.from_pretrained.assert_called_once_with(
@@ -105,8 +108,6 @@ def test_create_doctags_model_moves_to_device(
     mock_processor_cls: MagicMock,
     mock_model_cls: MagicMock,
 ) -> None:
-    from pipeline.doctags import create_doctags_model
-
     create_doctags_model(device="cpu")
 
     mock_model_cls.from_pretrained.return_value.to.assert_called_once_with("cpu")
@@ -116,33 +117,24 @@ def test_create_doctags_model_moves_to_device(
 
 
 def test_generate_doctags_uses_correct_prompt() -> None:
-    from pipeline.doctags import generate_doctags
-
     mock_processor = MagicMock()
     mock_model = MagicMock()
 
-    # Set up device inference
     mock_param = MagicMock()
     mock_param.device = torch.device("cpu")
     mock_model.parameters.return_value = iter([mock_param])
 
-    # Set up processor.apply_chat_template to return a string
     mock_processor.apply_chat_template.return_value = "formatted prompt"
 
-    # Set up processor(...) to return input dict
     mock_inputs = {"input_ids": torch.tensor([[1, 2, 3]])}
     mock_processor.return_value = MagicMock()
     mock_processor.return_value.to.return_value = mock_inputs
 
-    # Set up model.generate
     mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
-
-    # Set up processor.batch_decode
     mock_processor.batch_decode.return_value = ["<doctag>content</doctag>"]
 
     result = generate_doctags(Image.new("RGB", (100, 100)), mock_processor, mock_model)
 
-    # Verify the prompt contains "Convert this page to docling."
     call_args = mock_processor.apply_chat_template.call_args
     messages = call_args[0][0]
     text_content = [c for c in messages[0]["content"] if c["type"] == "text"]
@@ -152,8 +144,6 @@ def test_generate_doctags_uses_correct_prompt() -> None:
 
 
 def test_generate_doctags_returns_empty_on_empty_output() -> None:
-    from pipeline.doctags import generate_doctags
-
     mock_processor = MagicMock()
     mock_model = MagicMock()
 
