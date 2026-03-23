@@ -1,7 +1,3 @@
-import tempfile
-import time
-from pathlib import Path
-
 import streamlit as st
 from docling_core.types.doc.document import DoclingDocument
 from PIL import Image
@@ -12,6 +8,8 @@ from pipeline import (
     generate_doctags,
     parse_doctags,
     render_pdf_pages,
+    temp_upload,
+    timed,
 )
 
 doctags_model = st.cache_resource(create_doctags_model)
@@ -31,41 +29,35 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
     processor, model = doctags_model()
 
     if is_pdf:
-        tmp_path: str | None = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                tmp_file.write(uploaded_file.read())
-                tmp_path = tmp_file.name
-
+        with temp_upload(uploaded_file) as tmp_path:
             with st.spinner("Rendering PDF pages..."):
                 page_images = render_pdf_pages(tmp_path)
 
             num_pages = len(page_images)
             progress = st.progress(0, text="Generating doctags...")
-            start = time.perf_counter_ns()
 
             all_doctags: list[str] = []
             all_markdown: list[str] = []
             all_docs: list[DoclingDocument | None] = []
 
-            for i, page_image in enumerate(page_images):
-                progress.progress(
-                    (i + 1) / num_pages,
-                    text=f"Processing page {i + 1} of {num_pages}...",
-                )
-                raw = generate_doctags(page_image, processor, model)
-                all_doctags.append(raw)
+            with timed() as t:
+                for i, page_image in enumerate(page_images):
+                    progress.progress(
+                        (i + 1) / num_pages,
+                        text=f"Processing page {i + 1} of {num_pages}...",
+                    )
+                    raw = generate_doctags(page_image, processor, model)
+                    all_doctags.append(raw)
 
-                doc = parse_doctags(raw, page_image) if raw else None
-                all_docs.append(doc)
-                all_markdown.append(export_markdown(doc) if doc else "")
+                    doc = parse_doctags(raw, page_image) if raw else None
+                    all_docs.append(doc)
+                    all_markdown.append(export_markdown(doc) if doc else "")
 
-            duration_s = (time.perf_counter_ns() - start) / 1e9
             progress.empty()
 
             col1, col2 = st.columns(2)
             col1.metric("Pages", num_pages)
-            col2.metric("Duration (s)", f"{duration_s:.2f}")
+            col2.metric("Duration (s)", f"{t.duration_s:.2f}")
 
             combined_doctags = "\n\n".join(all_doctags)
             combined_markdown = "\n\n---\n\n".join(md for md in all_markdown if md)
@@ -102,19 +94,14 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
                     else:
                         col_output.warning("Model produced no output for this page.")
 
-        finally:
-            if tmp_path is not None:
-                Path(tmp_path).unlink(missing_ok=True)
-
     else:
         image = Image.open(uploaded_file).convert("RGB")
 
         with st.spinner("Generating doctags... This may take a few minutes."):
-            start = time.perf_counter_ns()
-            raw_doctags = generate_doctags(image, processor, model)
-            duration_s = (time.perf_counter_ns() - start) / 1e9
+            with timed() as t:
+                raw_doctags = generate_doctags(image, processor, model)
 
-        st.metric("Duration (s)", f"{duration_s:.2f}")
+        st.metric("Duration (s)", f"{t.duration_s:.2f}")
 
         col_img, col_output = st.columns(2)
         col_img.image(image, caption="Original")
