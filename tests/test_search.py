@@ -1,5 +1,6 @@
 """Tests for the search module."""
 
+import chromadb
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -36,3 +37,18 @@ def test_get_collection_uses_persistent_client(tmp_path: Path) -> None:
         collection = get_collection()
         assert (tmp_path / "test_chroma").exists()
         assert collection is not None
+
+
+# --- clear_collection tests ---
+
+
+def test_clear_collection_empties_collection() -> None:
+    from pipeline.search import clear_collection
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection("test_clear")
+    collection.upsert(ids=["1", "2"], documents=["doc1", "doc2"])
+    assert collection.count() == 2
+
+    clear_collection(collection)
+    assert collection.count() == 0

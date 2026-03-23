@@ -28,3 +28,10 @@ def get_collection() -> chromadb.Collection:
         name=COLLECTION_NAME,
         metadata={"hnsw:space": "cosine"},
     )
+
+
+def clear_collection(collection: chromadb.Collection) -> None:
+    """Delete all documents from a ChromaDB collection."""
+    ids = collection.get()["ids"]
+    if ids:
+        collection.delete(ids=ids)
