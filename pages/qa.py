@@ -1,14 +1,16 @@
-import tempfile
-import time
-from pathlib import Path
-
-import pypdfium2
 import streamlit as st
 from PIL import Image
 
-from pipeline import create_qa_model, generate_qa_response, render_pdf_pages
+from pipeline import (
+    create_granite_vision_model,
+    generate_qa_response,
+    get_pdf_page_count,
+    render_pdf_pages,
+    temp_upload,
+    timed,
+)
 
-qa_model = st.cache_resource(create_qa_model)
+qa_model = st.cache_resource(create_granite_vision_model)
 
 st.title("Multipage QA (Experimental)")
 st.write(
@@ -23,7 +25,6 @@ uploaded_files = st.file_uploader(
 )
 
 page_images: list[Image.Image] = []
-tmp_path: str | None = None
 is_pdf = False
 selected: list[int] = []
 valid_upload = True
@@ -39,13 +40,9 @@ if uploaded_files:
         valid_upload = False
     elif len(pdf_files) == 1:
         is_pdf = True
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(pdf_files[0].read())
-            tmp_path = tmp_file.name
-
-        pdf = pypdfium2.PdfDocument(tmp_path)
-        total_pages = len(pdf)
-        pdf.close()
+        with temp_upload(pdf_files[0]) as path:
+            total_pages = get_pdf_page_count(path)
+        pdf_files[0].seek(0)  # reset for re-read in button handler
 
         default_pages = list(range(1, min(9, total_pages + 1)))
         selected = st.multiselect(
@@ -69,35 +66,38 @@ if st.button("Answer", type="primary", disabled=not has_input):
     assert uploaded_files is not None
     processor, model = qa_model()
 
-    try:
-        if is_pdf:
-            assert tmp_path is not None
+    if is_pdf:
+        pdf_files = [f for f in uploaded_files if f.name.lower().endswith(".pdf")]
+        with temp_upload(pdf_files[0]) as tmp_path:
             with st.spinner("Rendering selected pages..."):
                 page_images = render_pdf_pages(
                     tmp_path, page_indices=[i - 1 for i in selected]
                 )
-        else:
-            page_images = [Image.open(f).convert("RGB") for f in uploaded_files]
+
+            with st.spinner("Generating answer..."):
+                with timed() as t:
+                    answer = generate_qa_response(
+                        page_images, question, processor, model
+                    )
+    else:
+        page_images = [Image.open(f).convert("RGB") for f in uploaded_files]
 
         with st.spinner("Generating answer..."):
-            start = time.perf_counter_ns()
-            answer = generate_qa_response(page_images, question, processor, model)
-            duration_s = (time.perf_counter_ns() - start) / 1e9
+            with timed() as t:
+                answer = generate_qa_response(
+                    page_images, question, processor, model
+                )
 
-        if not answer:
-            st.warning("Model produced no output.")
-        else:
-            col_thumbs, col_answer = st.columns([1, 2])
-            with col_thumbs:
-                for i, img in enumerate(page_images, 1):
-                    st.image(img, caption=f"Page {i}", use_container_width=True)
-            with col_answer:
-                st.markdown(answer)
+    if not answer:
+        st.warning("Model produced no output.")
+    else:
+        col_thumbs, col_answer = st.columns([1, 2])
+        with col_thumbs:
+            for i, img in enumerate(page_images, 1):
+                st.image(img, caption=f"Page {i}", use_container_width=True)
+        with col_answer:
+            st.markdown(answer)
 
-            st.metric("Duration (s)", f"{duration_s:.2f}")
+        st.metric("Duration (s)", f"{t.duration_s:.2f}")
 
-        st.caption("Answers are limited to ~1024 tokens and may be truncated.")
-
-    finally:
-        if tmp_path is not None:
-            Path(tmp_path).unlink(missing_ok=True)
+    st.caption("Answers are limited to ~1024 tokens and may be truncated.")
