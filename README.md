@@ -27,19 +27,21 @@ uv run streamlit run streamlit_app.py
 
 **Multipage QA (Experimental)** — Upload a PDF or up to 8 images and ask questions about the content. Images are resized to 768px max dimension for GPU memory efficiency. Answers are displayed alongside page thumbnails.
 
-**Document Search (Experimental)** — Search across previously extracted document content using natural language questions. Uses Granite embedding model for semantic search and Granite Vision for RAG-powered answer generation. Sources are displayed alongside answers.
+**Document Search** — Search across previously extracted document content using natural language questions. Uses Granite embedding model for semantic search and Granite Vision for RAG-powered answer generation. Sources are displayed alongside answers.
 
 ## Project Structure
 
 ```
 pipeline/
   __init__.py          # public API re-exports
+  models.py            # shared model loading, vision model factories, generate helper
+  utils.py             # temp_upload and timed context managers
   config.py            # converter factory, convert wrapper
   output.py            # unified element builder, description and table extraction
-  segmentation.py      # segmentation pipeline, SAM refinement, model loaders
-  doctags.py           # doctags generation, parsing, PDF rendering, model loaders
-  qa.py                # multipage QA model loader, image resizing, inference
-  search.py            # embedding model loader, ChromaDB indexing, query, RAG generation
+  segmentation.py      # segmentation pipeline, SAM refinement, SAM model loader
+  doctags.py           # doctags generation, parsing, PDF rendering
+  qa.py                # image resizing, multipage QA inference
+  search.py            # embedding model, ChromaDB indexing, query, RAG generation
 pages/
   segmentation.py      # segmentation UI page
   doctags.py           # doctags generation UI page
@@ -49,8 +51,10 @@ streamlit_app.py       # PDF extraction UI (main page)
 tests/
   test_config.py       # converter factory and pipeline option tests
   test_output.py       # element builder, description, and table content tests
-  test_segmentation.py # segmentation helper unit tests
-  test_doctags.py      # doctags rendering, parsing, inference, and export tests
-  test_qa.py           # QA resizing, model factory, and inference tests
+  test_models.py       # shared model loading and generate_response tests
+  test_utils.py        # temp_upload and timed context manager tests
+  test_segmentation.py # SAM model, segment pipeline, and helper unit tests
+  test_doctags.py      # doctags rendering, page count, parsing, and inference tests
+  test_qa.py           # QA resizing, prompt structure, and validation tests
   test_search.py       # embedding, indexing, query, RAG, and collection tests
 ```
