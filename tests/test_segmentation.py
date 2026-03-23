@@ -1,14 +1,18 @@
 """Tests for the segmentation module."""
 
+from unittest.mock import MagicMock, patch
+
 import torch
 from PIL import Image
 
 from pipeline.segmentation import (
     compute_logits_from_mask,
+    create_sam_model,
     draw_mask,
     extract_segmentation,
     prepare_mask,
     sample_points,
+    segment,
 )
 
 
@@ -190,3 +194,106 @@ def test_draw_mask_alpha_varies_with_mask() -> None:
     assert fg_pixel[0] > bg_pixel[0]
     # Foreground should be semi-transparent (not fully opaque red)
     assert fg_pixel[0] < 255
+
+
+# --- create_sam_model tests ---
+
+
+@patch("pipeline.segmentation.SamModel")
+@patch("pipeline.segmentation.SamProcessor")
+def test_create_sam_model_loads_correct_model(
+    mock_processor_cls: MagicMock,
+    mock_model_cls: MagicMock,
+) -> None:
+    processor, model = create_sam_model(device="cpu")
+
+    mock_processor_cls.from_pretrained.assert_called_once_with("facebook/sam-vit-huge")
+    mock_model_cls.from_pretrained.assert_called_once_with("facebook/sam-vit-huge")
+    mock_model_cls.from_pretrained.return_value.to.assert_called_once_with("cpu")
+    assert processor is mock_processor_cls.from_pretrained.return_value
+    assert model is mock_model_cls.from_pretrained.return_value.to.return_value
+
+
+# --- segment tests ---
+
+
+@patch("pipeline.segmentation.refine_with_sam")
+@patch("pipeline.segmentation.generate_response")
+def test_segment_returns_mask_on_valid_output(
+    mock_gen: MagicMock,
+    mock_refine: MagicMock,
+) -> None:
+    # generate_response returns text with valid <seg> tags
+    mock_gen.return_value = "<seg>others *288\n dog *288</seg>"
+
+    # refine_with_sam returns a binary mask tensor
+    mock_refine.return_value = torch.ones(100, 100, dtype=torch.uint8)
+
+    image = Image.new("RGB", (100, 100))
+    granite = (MagicMock(), MagicMock())
+    sam = (MagicMock(), MagicMock())
+
+    result = segment(image, "the dog", granite, sam)
+
+    assert result is not None
+    assert isinstance(result, Image.Image)
+    assert result.mode == "L"
+    assert result.size == (100, 100)
+    mock_gen.assert_called_once()
+    mock_refine.assert_called_once()
+
+
+@patch("pipeline.segmentation.generate_response")
+def test_segment_returns_none_when_no_seg_tags(
+    mock_gen: MagicMock,
+) -> None:
+    mock_gen.return_value = "No segmentation output here."
+
+    image = Image.new("RGB", (50, 50))
+    granite = (MagicMock(), MagicMock())
+    sam = (MagicMock(), MagicMock())
+
+    result = segment(image, "the cat", granite, sam)
+
+    assert result is None
+
+
+@patch("pipeline.segmentation.generate_response")
+def test_segment_prompt_structure(
+    mock_gen: MagicMock,
+) -> None:
+    mock_gen.return_value = "no tags"
+
+    image = Image.new("RGB", (50, 50))
+    granite_processor = MagicMock()
+    granite_model = MagicMock()
+    sam = (MagicMock(), MagicMock())
+
+    segment(image, "the red car", (granite_processor, granite_model), sam)
+
+    conversation = mock_gen.call_args[0][0]
+    content = conversation[0]["content"]
+    text_entries = [c for c in content if c["type"] == "text"]
+    assert len(text_entries) == 1
+    assert "the red car" in text_entries[0]["text"]
+
+    assert mock_gen.call_args[1]["max_new_tokens"] == 8192
+
+
+@patch("pipeline.segmentation.generate_response")
+def test_segment_converts_to_rgb(
+    mock_gen: MagicMock,
+) -> None:
+    mock_gen.return_value = "no tags"
+
+    # Pass an RGBA image — segment should convert to RGB
+    image = Image.new("RGBA", (50, 50))
+    granite = (MagicMock(), MagicMock())
+    sam = (MagicMock(), MagicMock())
+
+    segment(image, "object", granite, sam)
+
+    # The image passed to generate_response should be RGB
+    conversation = mock_gen.call_args[0][0]
+    img_entries = [c for c in conversation[0]["content"] if c["type"] == "image"]
+    assert img_entries[0]["image"].mode == "RGB"
