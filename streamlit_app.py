@@ -2,6 +2,7 @@ import json
 import tempfile
 import time
 from pathlib import Path
+from typing import cast
 
 import streamlit as st
 from docling.exceptions import ConversionError
@@ -61,7 +62,10 @@ if st.button("Annotate", type="primary", disabled=not uploaded_file):
 
         try:
             count = index_elements(
-                output["elements"], uploaded_file.name, embedding_model(), collection()
+                cast(list[dict], output["elements"]),
+                uploaded_file.name,
+                embedding_model(),
+                collection(),
             )
             if count > 0:
                 st.info(f"Indexed {count} elements for search.")
