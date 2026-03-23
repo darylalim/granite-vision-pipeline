@@ -4,9 +4,10 @@ import re
 from pathlib import Path
 
 import chromadb
-import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForVision2Seq, AutoProcessor
+
+from pipeline.models import generate_response
 
 CHROMA_PATH = str(Path(__file__).resolve().parent.parent / ".chroma")
 COLLECTION_NAME = "elements"
@@ -78,10 +79,17 @@ def _chunk_text(
 ) -> list[str]:
     """Split text into chunks if it exceeds the token limit.
 
-    Splits on sentence boundaries (preserving trailing periods) via regex
-    lookbehind, falling back to '\\n' for content like table markdown.
+    Uses a character-based estimate (len/4) for the initial check, then
+    exact tokenization only when building chunks. Splits on sentence
+    boundaries (preserving trailing periods) via regex lookbehind, falling
+    back to '\\n' for content like table markdown.
     Returns [text] if within token_limit.
     """
+    # Quick estimate: ~4 chars per token on average
+    if len(text) // 4 <= token_limit:
+        return [text]
+
+    # Exact check for borderline cases
     tokenizer = model.tokenizer
     token_count = len(tokenizer.encode(text))
     if token_count <= token_limit:
@@ -235,7 +243,7 @@ def generate_answer(
     """Generate a RAG answer using retrieved context and Granite Vision.
 
     Constructs a text-only prompt from the context and question, sends to
-    the model via apply_chat_template. Uses max_new_tokens=1024.
+    the model via generate_response. Uses max_new_tokens=1024.
     """
     context_lines: list[str] = []
     for i, item in enumerate(context, 1):
@@ -260,19 +268,4 @@ def generate_answer(
 
     conversation = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
 
-    device = next(model.parameters()).device
-
-    inputs = processor.apply_chat_template(  # type: ignore[operator]
-        conversation,
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-    ).to(device)
-
-    with torch.inference_mode():
-        output = model.generate(**inputs, max_new_tokens=1024)
-
-    trimmed = output[:, inputs["input_ids"].shape[1] :]
-    decoded = processor.decode(trimmed[0], skip_special_tokens=True)  # type: ignore[operator]
-    return decoded
+    return generate_response(conversation, processor, model, max_new_tokens=1024)

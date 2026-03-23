@@ -1,7 +1,6 @@
 """Tests for the search module."""
 
 import chromadb
-import torch
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -351,19 +350,22 @@ def test_index_elements_chunks_long_text() -> None:
     mock_tokenizer = MagicMock()
 
     def fake_encode(text: str) -> list[int]:
-        # Text with many sentences returns >8000, individual parts return small
-        if "Long sentence" in text and text.count(". ") > 5:
+        # Full text returns >8000 tokens; individual sentence parts return small
+        if text.count(". ") > 5:
             return list(range(9000))
         return list(range(100))
 
     mock_tokenizer.encode = fake_encode
     mock_model.tokenizer = mock_tokenizer
-    mock_model.encode.return_value = [[0.1] * 768, [0.2] * 768]
+    # Return enough embeddings for any number of chunks (use side_effect)
+    mock_model.encode.side_effect = lambda docs: [[0.1] * 768] * len(docs)
 
     client = chromadb.Client()
     collection = client.get_or_create_collection("test_chunk")
 
-    long_text = ". ".join([f"Long sentence {i}" for i in range(100)])
+    # Each sentence is ~327 chars; 100 sentences × ~329 chars = ~32898 chars.
+    # len(text) // 4 ≈ 8224 > token_limit (8000), so the fast path is bypassed.
+    long_text = ". ".join([f"Long sentence {'x' * 310} {i}" for i in range(100)])
     elements = [
         {
             "element_number": 1,
@@ -539,22 +541,11 @@ def test_query_index_filters_by_min_similarity() -> None:
 # --- generate_answer tests ---
 
 
-def test_generate_answer_prompt_structure() -> None:
+@patch("pipeline.search.generate_response")
+def test_generate_answer_prompt_structure(mock_gen: MagicMock) -> None:
     from pipeline.search import generate_answer
 
-    mock_processor = MagicMock()
-    mock_model = MagicMock()
-
-    mock_param = MagicMock()
-    mock_param.device = torch.device("cpu")
-    mock_model.parameters.return_value = iter([mock_param])
-
-    mock_processor.apply_chat_template.return_value = MagicMock()
-    mock_processor.apply_chat_template.return_value.to.return_value = {
-        "input_ids": torch.tensor([[1, 2, 3]])
-    }
-    mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
-    mock_processor.decode.return_value = "The answer."
+    mock_gen.return_value = "The answer."
 
     context = [
         {
@@ -579,12 +570,13 @@ def test_generate_answer_prompt_structure() -> None:
         },
     ]
 
+    mock_processor = MagicMock()
+    mock_model = MagicMock()
     result = generate_answer(
         "How did revenue change?", context, mock_processor, mock_model
     )
 
-    call_args = mock_processor.apply_chat_template.call_args
-    conversation = call_args[0][0]
+    conversation = mock_gen.call_args[0][0]
     content = conversation[0]["content"]
 
     assert len(content) == 1
@@ -596,87 +588,46 @@ def test_generate_answer_prompt_structure() -> None:
     assert "Revenue grew 20%." in prompt_text
     assert "How did revenue change?" in prompt_text
 
-    call_kwargs = mock_processor.apply_chat_template.call_args[1]
-    assert call_kwargs["add_generation_prompt"] is True
-    assert call_kwargs["tokenize"] is True
-    assert call_kwargs["return_dict"] is True
-    assert call_kwargs["return_tensors"] == "pt"
-
+    assert mock_gen.call_args[1]["max_new_tokens"] == 1024
     assert result == "The answer."
 
 
-def test_generate_answer_uses_max_new_tokens() -> None:
+@patch("pipeline.search.generate_response")
+def test_generate_answer_uses_max_new_tokens(mock_gen: MagicMock) -> None:
     from pipeline.search import generate_answer
 
-    mock_processor = MagicMock()
-    mock_model = MagicMock()
-
-    mock_param = MagicMock()
-    mock_param.device = torch.device("cpu")
-    mock_model.parameters.return_value = iter([mock_param])
-
-    mock_processor.apply_chat_template.return_value = MagicMock()
-    mock_processor.apply_chat_template.return_value.to.return_value = {
-        "input_ids": torch.tensor([[1, 2]])
-    }
-    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
-    mock_processor.decode.return_value = "answer"
+    mock_gen.return_value = "answer"
 
     generate_answer(
         "q",
         [{"text": "t", "metadata": {"type": "picture"}, "similarity": 0.8}],
-        mock_processor,
-        mock_model,
+        MagicMock(),
+        MagicMock(),
     )
 
-    _, gen_kwargs = mock_model.generate.call_args
-    assert gen_kwargs["max_new_tokens"] == 1024
+    assert mock_gen.call_args[1]["max_new_tokens"] == 1024
 
 
-def test_generate_answer_empty_context() -> None:
+@patch("pipeline.search.generate_response")
+def test_generate_answer_empty_context(mock_gen: MagicMock) -> None:
     from pipeline.search import generate_answer
 
-    mock_processor = MagicMock()
-    mock_model = MagicMock()
+    mock_gen.return_value = "No context available."
 
-    mock_param = MagicMock()
-    mock_param.device = torch.device("cpu")
-    mock_model.parameters.return_value = iter([mock_param])
+    result = generate_answer("question", [], MagicMock(), MagicMock())
 
-    mock_processor.apply_chat_template.return_value = MagicMock()
-    mock_processor.apply_chat_template.return_value.to.return_value = {
-        "input_ids": torch.tensor([[1, 2]])
-    }
-    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
-    mock_processor.decode.return_value = "No context available."
-
-    result = generate_answer("question", [], mock_processor, mock_model)
-
-    mock_model.generate.assert_called_once()
+    mock_gen.assert_called_once()
     assert result == "No context available."
 
 
-def test_generate_answer_missing_type_defaults_to_element() -> None:
+@patch("pipeline.search.generate_response")
+def test_generate_answer_missing_type_defaults_to_element(mock_gen: MagicMock) -> None:
     from pipeline.search import generate_answer
 
-    mock_processor = MagicMock()
-    mock_model = MagicMock()
-
-    mock_param = MagicMock()
-    mock_param.device = torch.device("cpu")
-    mock_model.parameters.return_value = iter([mock_param])
-
-    mock_processor.apply_chat_template.return_value = MagicMock()
-    mock_processor.apply_chat_template.return_value.to.return_value = {
-        "input_ids": torch.tensor([[1, 2]])
-    }
-    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
-    mock_processor.decode.return_value = "answer"
+    mock_gen.return_value = "answer"
 
     context = [{"text": "some text", "metadata": {}, "similarity": 0.5}]
-    generate_answer("q", context, mock_processor, mock_model)
+    generate_answer("q", context, MagicMock(), MagicMock())
 
-    prompt_text = mock_processor.apply_chat_template.call_args[0][0][0]["content"][0][
-        "text"
-    ]
+    prompt_text = mock_gen.call_args[0][0][0]["content"][0]["text"]
     assert "[Element 1 - element]" in prompt_text
