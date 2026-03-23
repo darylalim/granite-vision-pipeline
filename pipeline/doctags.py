@@ -33,6 +33,15 @@ def render_pdf_pages(
         pdf.close()
 
 
+def get_pdf_page_count(pdf_path: str) -> int:
+    """Return the number of pages in a PDF without rendering."""
+    pdf = pypdfium2.PdfDocument(pdf_path)
+    try:
+        return len(pdf)
+    finally:
+        pdf.close()
+
+
 def parse_doctags(doctags: str, image: Image.Image) -> DoclingDocument | None:
     """Parse raw doctags string into a DoclingDocument.
 

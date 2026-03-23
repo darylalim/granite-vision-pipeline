@@ -11,6 +11,7 @@ from pipeline.doctags import (
     create_doctags_model,
     export_markdown,
     generate_doctags,
+    get_pdf_page_count,
     parse_doctags,
     render_pdf_pages,
 )
@@ -48,6 +49,19 @@ def test_render_pdf_pages_with_page_indices() -> None:
     first_page = render_pdf_pages(TEST_PDF, page_indices=[0])
     assert len(first_page) == 1
     assert first_page[0].size == all_pages[0].size
+
+
+# --- get_pdf_page_count tests ---
+
+
+def test_get_pdf_page_count_returns_correct_count() -> None:
+    all_pages = render_pdf_pages(TEST_PDF)
+    count = get_pdf_page_count(TEST_PDF)
+    assert count == len(all_pages)
+
+
+def test_get_pdf_page_count_positive() -> None:
+    assert get_pdf_page_count(TEST_PDF) > 0
 
 
 # --- parse_doctags tests ---
