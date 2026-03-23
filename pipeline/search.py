@@ -1,11 +1,13 @@
 """Document search and RAG using embeddings and ChromaDB."""
 
+from pathlib import Path
+
 import chromadb
 import torch
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModelForVision2Seq, AutoProcessor
 
-CHROMA_PATH = ".chroma"
+CHROMA_PATH = str(Path(__file__).resolve().parent.parent / ".chroma")
 COLLECTION_NAME = "elements"
 EMBEDDING_MODEL = "ibm-granite/granite-embedding-english-r2"
 
