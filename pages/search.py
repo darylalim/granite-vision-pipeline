@@ -20,7 +20,14 @@ st.write(
 )
 
 coll = collection()
-doc_count = coll.count()
+
+
+@st.cache_data(ttl=5)
+def _get_doc_count() -> int:
+    return coll.count()
+
+
+doc_count = _get_doc_count()
 st.metric("Indexed documents", doc_count)
 
 if doc_count == 0:
