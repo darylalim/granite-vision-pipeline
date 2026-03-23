@@ -3,9 +3,9 @@ import io
 import streamlit as st
 from PIL import Image
 
-from pipeline import create_granite_model, create_sam_model, draw_mask, segment
+from pipeline import create_granite_vision_model, create_sam_model, draw_mask, segment
 
-granite_model = st.cache_resource(create_granite_model)
+granite_model = st.cache_resource(create_granite_vision_model)
 sam_model = st.cache_resource(create_sam_model)
 
 st.title("Image Segmentation (Experimental)")
