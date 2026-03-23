@@ -326,3 +326,118 @@ def test_index_elements_chunks_long_text() -> None:
     assert len(chunk_ids) >= 2
     assert "test.pdf:#/pictures/0:chunk_0" in all_ids
     assert "test.pdf:#/pictures/0:chunk_1" in all_ids
+
+
+# --- query_index tests ---
+
+
+def test_query_index_returns_results() -> None:
+    from pipeline.search import query_index
+
+    mock_model = MagicMock()
+    mock_model.encode.side_effect = [
+        [[0.1] * 768],
+        [[0.1] * 768],
+    ]
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection(
+        "test_query", metadata={"hnsw:space": "cosine"}
+    )
+    collection.upsert(
+        ids=["doc1"],
+        documents=["Revenue grew 20% in Q4."],
+        embeddings=[[0.1] * 768],
+        metadatas=[{"source": "test.pdf", "type": "picture", "element_number": 1, "reference": "#/pictures/0"}],
+    )
+
+    results = query_index("What happened to revenue?", mock_model, collection)
+    assert len(results) == 1
+    assert results[0]["text"] == "Revenue grew 20% in Q4."
+    assert results[0]["metadata"]["source"] == "test.pdf"
+    assert "similarity" in results[0]
+
+
+def test_query_index_respects_n_results() -> None:
+    from pipeline.search import query_index
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.5] * 768]
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection(
+        "test_n_results", metadata={"hnsw:space": "cosine"}
+    )
+    for i in range(5):
+        collection.upsert(
+            ids=[f"doc{i}"],
+            documents=[f"Document {i}"],
+            embeddings=[[0.5 + i * 0.01] * 768],
+            metadatas=[{"source": "t.pdf", "type": "picture", "element_number": i, "reference": f"#/pictures/{i}"}],
+        )
+
+    results = query_index("query", mock_model, collection, n_results=2)
+    assert len(results) <= 2
+
+
+def test_query_index_empty_collection() -> None:
+    from pipeline.search import query_index
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1] * 768]
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection("test_empty_query")
+
+    results = query_index("anything", mock_model, collection)
+    assert results == []
+
+
+def test_query_index_result_keys() -> None:
+    from pipeline.search import query_index
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1] * 768]
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection(
+        "test_keys", metadata={"hnsw:space": "cosine"}
+    )
+    collection.upsert(
+        ids=["doc1"],
+        documents=["Some text"],
+        embeddings=[[0.1] * 768],
+        metadatas=[{"source": "a.pdf", "type": "table", "element_number": 1, "reference": "#/tables/0"}],
+    )
+
+    results = query_index("query", mock_model, collection)
+    assert len(results) == 1
+    assert set(results[0].keys()) == {"text", "metadata", "similarity"}
+
+
+def test_query_index_filters_by_min_similarity() -> None:
+    from pipeline.search import query_index
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[1.0] + [0.0] * 767]
+
+    client = chromadb.Client()
+    collection = client.get_or_create_collection(
+        "test_sim_filter", metadata={"hnsw:space": "cosine"}
+    )
+    collection.upsert(
+        ids=["similar"],
+        documents=["Similar text"],
+        embeddings=[[1.0] + [0.0] * 767],
+        metadatas=[{"source": "a.pdf", "type": "picture", "element_number": 1, "reference": "#/pictures/0"}],
+    )
+    collection.upsert(
+        ids=["dissimilar"],
+        documents=["Different text"],
+        embeddings=[[0.0, 1.0] + [0.0] * 766],
+        metadatas=[{"source": "a.pdf", "type": "table", "element_number": 2, "reference": "#/tables/0"}],
+    )
+
+    results = query_index("query", mock_model, collection, n_results=5, min_similarity=0.9)
+    assert len(results) == 1
+    assert results[0]["text"] == "Similar text"

@@ -171,3 +171,47 @@ def index_elements(
         metadatas=metadatas,
     )
     return len(docs)
+
+
+def query_index(
+    question: str,
+    model: SentenceTransformer,
+    collection: chromadb.Collection,
+    n_results: int = 5,
+    min_similarity: float = 0.3,
+) -> list[dict]:
+    """Search the index for documents relevant to a question.
+
+    Embeds the question and queries ChromaDB. Filters results below
+    min_similarity (cosine similarity = 1 - distance). Returns list
+    of dicts with 'text', 'metadata', and 'similarity' keys.
+    """
+    if collection.count() == 0:
+        return []
+
+    raw = model.encode([question])
+    query_embedding = raw.tolist() if hasattr(raw, "tolist") else list(raw)
+
+    actual_n = min(n_results, collection.count())
+
+    results = collection.query(
+        query_embeddings=query_embedding,
+        n_results=actual_n,
+        include=["documents", "metadatas", "distances"],
+    )
+
+    output: list[dict] = []
+    documents = results["documents"][0] if results["documents"] else []
+    metadatas = results["metadatas"][0] if results["metadatas"] else []
+    distances = results["distances"][0] if results["distances"] else []
+
+    for doc, meta, dist in zip(documents, metadatas, distances):
+        similarity = 1.0 - dist
+        if similarity >= min_similarity:
+            output.append({
+                "text": doc,
+                "metadata": meta,
+                "similarity": similarity,
+            })
+
+    return output
