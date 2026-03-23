@@ -1,5 +1,6 @@
 """Document search and RAG using embeddings and ChromaDB."""
 
+import re
 from pathlib import Path
 
 import chromadb
@@ -77,19 +78,21 @@ def _chunk_text(
 ) -> list[str]:
     """Split text into chunks if it exceeds the token limit.
 
-    Splits on '. ' (sentence boundaries), falling back to '\\n' for content
-    like table markdown. Returns [text] if within token_limit.
+    Splits on sentence boundaries (preserving trailing periods) via regex
+    lookbehind, falling back to '\\n' for content like table markdown.
+    Returns [text] if within token_limit.
     """
     tokenizer = model.tokenizer
     token_count = len(tokenizer.encode(text))
     if token_count <= token_limit:
         return [text]
 
-    used_sep = ". "
-    parts = text.split(used_sep)
+    # Split on sentence boundaries (preserving the period) or newlines
+    parts = re.split(r"(?<=\.) ", text)
+    joiner = " "
     if len(parts) <= 1:
-        used_sep = "\n"
-        parts = text.split(used_sep)
+        parts = text.split("\n")
+        joiner = "\n"
     if len(parts) <= 1:
         return [text]
 
@@ -98,10 +101,10 @@ def _chunk_text(
     current_tokens = 0
 
     for part in parts:
-        part_tokens = len(tokenizer.encode(part + used_sep))
+        part_tokens = len(tokenizer.encode(part))
 
         if current_tokens + part_tokens > chunk_size and current:
-            chunks.append(used_sep.join(current))
+            chunks.append(joiner.join(current))
             overlap_parts: list[str] = []
             overlap_tokens = 0
             for p in reversed(current):
@@ -117,7 +120,7 @@ def _chunk_text(
         current_tokens += part_tokens
 
     if current:
-        chunks.append(used_sep.join(current))
+        chunks.append(joiner.join(current))
 
     return chunks if chunks else [text]
 
