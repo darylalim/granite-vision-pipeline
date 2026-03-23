@@ -3,7 +3,7 @@ import streamlit as st
 from pipeline import (
     clear_collection,
     create_embedding_model,
-    create_qa_model,
+    create_granite_vision_model,
     generate_answer,
     get_collection,
     query_index,
@@ -11,7 +11,7 @@ from pipeline import (
 
 embedding_model = st.cache_resource(create_embedding_model)
 collection = st.cache_resource(get_collection)
-qa_model = st.cache_resource(create_qa_model)
+qa_model = st.cache_resource(create_granite_vision_model)
 
 st.title("Document Search")
 st.write(
