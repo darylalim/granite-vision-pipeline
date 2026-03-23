@@ -34,3 +34,33 @@ def create_doctags_model(
 ) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
     """Load Granite Docling 258M for doctags generation."""
     return _load_vision_model("ibm-granite/granite-docling-258M", device)
+
+
+def generate_response(
+    conversation: list[dict],
+    processor: AutoProcessor,
+    model: AutoModelForVision2Seq,
+    max_new_tokens: int = 1024,
+) -> str:
+    """Generate a response from a conversation using apply_chat_template.
+
+    Handles the common pattern: tokenize conversation, generate, trim
+    input tokens from output, decode. Returns decoded string, or empty
+    string if the model produces no new tokens.
+    """
+    device = next(model.parameters()).device
+
+    inputs = processor.apply_chat_template(  # type: ignore[operator]
+        conversation,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(device)
+
+    with torch.inference_mode():
+        output = model.generate(**inputs, max_new_tokens=max_new_tokens)
+
+    trimmed = output[:, inputs["input_ids"].shape[1] :]
+    decoded = processor.decode(trimmed[0], skip_special_tokens=True)  # type: ignore[operator]
+    return decoded
