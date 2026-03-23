@@ -5,12 +5,12 @@ import time
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, BinaryIO
+from typing import BinaryIO
 
 
 @contextmanager
 def temp_upload(
-    uploaded_file: IO[bytes] | BinaryIO, suffix: str = ".pdf"
+    uploaded_file: BinaryIO, suffix: str = ".pdf"
 ) -> Generator[str, None, None]:
     """Write an uploaded file to a temporary path and clean up on exit."""
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:

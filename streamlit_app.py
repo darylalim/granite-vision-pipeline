@@ -3,6 +3,7 @@ from typing import cast
 
 import streamlit as st
 from docling.exceptions import ConversionError
+from docling_core.types.doc.document import DoclingDocument
 
 from pipeline import (
     build_output,
@@ -28,6 +29,43 @@ st.write(
 
 uploaded_file = st.file_uploader("Upload file", type=["pdf"])
 
+
+def _render_elements(doc: DoclingDocument) -> None:
+    """Display extracted pictures and tables in expanders."""
+    for idx, pic in enumerate(doc.pictures, 1):
+        with st.expander(f"Picture {idx}", expanded=idx == 1):
+            col_img, col_desc = st.columns(2)
+            image = pic.get_image(doc)
+            if image:
+                col_img.image(image)
+            caption = pic.caption_text(doc=doc)
+            if caption:
+                col_img.caption(caption)
+            desc = get_description(pic)
+            if desc:
+                col_desc.markdown(desc["text"])
+            else:
+                col_desc.write("No description available.")
+
+    for idx, table in enumerate(doc.tables, 1):
+        with st.expander(
+            f"Table {idx}",
+            expanded=len(doc.pictures) == 0 and idx == 1,
+        ):
+            col_img, col_data = st.columns(2)
+            image = table.get_image(doc)
+            if image:
+                col_img.image(image)
+            caption = table.caption_text(doc=doc)
+            if caption:
+                col_img.caption(caption)
+            df = table.export_to_dataframe(doc=doc)
+            if not df.empty:
+                col_data.dataframe(df)
+            else:
+                col_data.write("Empty table.")
+
+
 if st.button("Annotate", type="primary", disabled=not uploaded_file):
     assert uploaded_file is not None
     try:
@@ -38,70 +76,39 @@ if st.button("Annotate", type="primary", disabled=not uploaded_file):
                 with timed() as t:
                     doc = convert(tmp_path, converter=converter())
 
-            st.success("Done.")
+        st.success("Done.")
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Pictures", len(doc.pictures))
-            col2.metric("Tables", len(doc.tables))
-            col3.metric("Duration (s)", f"{t.duration_s:.2f}")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Pictures", len(doc.pictures))
+        col2.metric("Tables", len(doc.tables))
+        col3.metric("Duration (s)", f"{t.duration_s:.2f}")
 
-            output = build_output(doc, t.duration_s)
+        output = build_output(doc, t.duration_s)
 
-            st.download_button(
-                label="Download JSON",
-                data=json.dumps(output, indent=2),
-                file_name=f"{uploaded_file.name}_annotations.json",
-                mime="application/json",
+        st.download_button(
+            label="Download JSON",
+            data=json.dumps(output, indent=2),
+            file_name=f"{uploaded_file.name}_annotations.json",
+            mime="application/json",
+        )
+
+        try:
+            count = index_elements(
+                cast(list[dict], output["elements"]),
+                uploaded_file.name,
+                embedding_model(),
+                collection(),
+            )
+            if count > 0:
+                st.info(f"Indexed {count} elements for search.")
+            else:
+                st.info("No indexable content found (no descriptions or tables).")
+        except Exception:
+            st.warning(
+                "Indexing for search failed, but extraction completed successfully."
             )
 
-            try:
-                count = index_elements(
-                    cast(list[dict], output["elements"]),
-                    uploaded_file.name,
-                    embedding_model(),
-                    collection(),
-                )
-                if count > 0:
-                    st.info(f"Indexed {count} elements for search.")
-                else:
-                    st.info("No indexable content found (no descriptions or tables).")
-            except Exception:
-                st.warning(
-                    "Indexing for search failed, but extraction completed successfully."
-                )
-
-            for idx, pic in enumerate(doc.pictures, 1):
-                with st.expander(f"Picture {idx}", expanded=idx == 1):
-                    col_img, col_desc = st.columns(2)
-                    image = pic.get_image(doc)
-                    if image:
-                        col_img.image(image)
-                    caption = pic.caption_text(doc=doc)
-                    if caption:
-                        col_img.caption(caption)
-                    desc = get_description(pic)
-                    if desc:
-                        col_desc.markdown(desc["text"])
-                    else:
-                        col_desc.write("No description available.")
-
-            for idx, table in enumerate(doc.tables, 1):
-                with st.expander(
-                    f"Table {idx}",
-                    expanded=len(doc.pictures) == 0 and idx == 1,
-                ):
-                    col_img, col_data = st.columns(2)
-                    image = table.get_image(doc)
-                    if image:
-                        col_img.image(image)
-                    caption = table.caption_text(doc=doc)
-                    if caption:
-                        col_img.caption(caption)
-                    df = table.export_to_dataframe(doc=doc)
-                    if not df.empty:
-                        col_data.dataframe(df)
-                    else:
-                        col_data.write("Empty table.")
+        _render_elements(doc)
 
     except ConversionError as e:
         st.error(str(e))

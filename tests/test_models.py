@@ -1,7 +1,8 @@
 """Tests for the models module."""
 
-import torch
 from unittest.mock import MagicMock, patch
+
+import torch
 
 
 @patch("pipeline.models.AutoModelForVision2Seq")
