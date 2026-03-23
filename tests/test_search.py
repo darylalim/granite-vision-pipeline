@@ -591,8 +591,8 @@ def test_generate_answer_prompt_structure() -> None:
     assert content[0]["type"] == "text"
 
     prompt_text = content[0]["text"]
-    assert "[Element 1 - picture]" in prompt_text
-    assert "[Element 2 - table]" in prompt_text
+    assert "[Element 1 - picture from test.pdf]" in prompt_text
+    assert "[Element 2 - table from test.pdf]" in prompt_text
     assert "Revenue grew 20%." in prompt_text
     assert "How did revenue change?" in prompt_text
 

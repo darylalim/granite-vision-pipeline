@@ -240,7 +240,12 @@ def generate_answer(
     context_lines: list[str] = []
     for i, item in enumerate(context, 1):
         type_label = item["metadata"].get("type", "element")
-        context_lines.append(f"[Element {i} - {type_label}]: {item['text']}")
+        source = item["metadata"].get("source", "")
+        label = f"[Element {i} - {type_label}"
+        if source:
+            label += f" from {source}"
+        label += "]"
+        context_lines.append(f"{label}: {item['text']}")
 
     context_str = (
         "\n".join(context_lines) if context_lines else "(No context available)"
