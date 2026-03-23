@@ -17,7 +17,6 @@ from pipeline.search import (
     query_index,
 )
 from pipeline.segmentation import (
-    create_granite_model,
     create_sam_model,
     draw_mask,
     segment,
@@ -30,7 +29,6 @@ __all__ = [
     "create_converter",
     "create_doctags_model",
     "create_embedding_model",
-    "create_granite_model",
     "create_sam_model",
     "draw_mask",
     "export_markdown",

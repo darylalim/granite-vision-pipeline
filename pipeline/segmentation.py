@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from PIL import Image
 from transformers import AutoModelForVision2Seq, AutoProcessor, SamModel, SamProcessor
 
+from pipeline.models import generate_response
+
 
 def extract_segmentation(
     text: str,
@@ -173,22 +175,6 @@ def draw_mask(mask: Image.Image, image: Image.Image) -> Image.Image:
     return composite
 
 
-def create_granite_model(
-    device: str | None = None,
-) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
-    """Load Granite Vision 3.3 2B for segmentation.
-
-    When device is None, auto-detects: CUDA if available, else CPU.
-    MPS is excluded due to limited operator support in SAM/transformers.
-    """
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_path = "ibm-granite/granite-vision-3.3-2b"
-    processor = AutoProcessor.from_pretrained(model_path)
-    model = AutoModelForVision2Seq.from_pretrained(model_path).to(device)
-    return processor, model
-
-
 def create_sam_model(
     device: str | None = None,
 ) -> tuple[SamProcessor, SamModel]:
@@ -267,7 +253,6 @@ def segment(
     """
     image = image.convert("RGB")
     granite_processor, granite_model = granite
-    device = next(granite_model.parameters()).device
 
     conversation = [
         {
@@ -283,18 +268,9 @@ def segment(
         },
     ]
 
-    inputs = granite_processor.apply_chat_template(  # type: ignore[operator]
-        conversation,
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-    ).to(device)
-
-    with torch.inference_mode():
-        output = granite_model.generate(**inputs, max_new_tokens=8192)
-
-    decoded = granite_processor.decode(output[0], skip_special_tokens=True)  # type: ignore[operator]
+    decoded = generate_response(
+        conversation, granite_processor, granite_model, max_new_tokens=8192
+    )
 
     flat_mask = extract_segmentation(decoded)
     if flat_mask is None:
