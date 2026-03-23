@@ -117,6 +117,60 @@ def test_extract_text_returns_none_for_empty_markdown() -> None:
     assert _extract_text(element) is None
 
 
+# --- _chunk_text tests ---
+
+
+def test_chunk_text_short_text_unchanged() -> None:
+    from pipeline.search import _chunk_text
+
+    mock_model = MagicMock()
+    mock_model.tokenizer.encode.return_value = list(range(100))
+
+    result = _chunk_text("Short text.", mock_model)
+    assert result == ["Short text."]
+
+
+def test_chunk_text_splits_on_sentences() -> None:
+    from pipeline.search import _chunk_text
+
+    mock_model = MagicMock()
+
+    def fake_encode(text: str) -> list[int]:
+        # Simulate token count proportional to text length
+        return list(range(len(text)))
+
+    mock_model.tokenizer.encode = fake_encode
+
+    text = ". ".join([f"Sentence {i}" for i in range(200)])
+    result = _chunk_text(text, mock_model, token_limit=500, chunk_size=400)
+    assert len(result) >= 2
+
+
+def test_chunk_text_falls_back_to_newline() -> None:
+    from pipeline.search import _chunk_text
+
+    mock_model = MagicMock()
+
+    def fake_encode(text: str) -> list[int]:
+        return list(range(len(text)))
+
+    mock_model.tokenizer.encode = fake_encode
+
+    text = "\n".join([f"| row {i} |" for i in range(200)])
+    result = _chunk_text(text, mock_model, token_limit=500, chunk_size=400)
+    assert len(result) >= 2
+
+
+def test_chunk_text_unsplittable_returns_original() -> None:
+    from pipeline.search import _chunk_text
+
+    mock_model = MagicMock()
+    mock_model.tokenizer.encode.return_value = list(range(9000))
+
+    result = _chunk_text("onebiglongstringwithnoseparators", mock_model)
+    assert result == ["onebiglongstringwithnoseparators"]
+
+
 # --- index_elements tests ---
 
 
