@@ -1,8 +1,9 @@
 """Multipage QA using Granite Vision."""
 
-import torch
 from PIL import Image
 from transformers import AutoModelForVision2Seq, AutoProcessor
+
+from pipeline.models import generate_response
 
 
 def resize_for_qa(image: Image.Image, max_dim: int = 768) -> Image.Image:
@@ -19,22 +20,6 @@ def resize_for_qa(image: Image.Image, max_dim: int = 768) -> Image.Image:
     new_w = int(w * scale)
     new_h = int(h * scale)
     return image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-
-
-def create_qa_model(
-    device: str | None = None,
-) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
-    """Load Granite Vision 3.3 2B for multipage QA.
-
-    When device is None, auto-detects: CUDA if available, else CPU.
-    MPS is excluded for consistency with other pipeline models.
-    """
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_path = "ibm-granite/granite-vision-3.3-2b"
-    processor = AutoProcessor.from_pretrained(model_path)
-    model = AutoModelForVision2Seq.from_pretrained(model_path).to(device)
-    return processor, model
 
 
 def generate_qa_response(
@@ -57,24 +42,9 @@ def generate_qa_response(
 
     prepared = [resize_for_qa(img.convert("RGB")) for img in images]
 
-    device = next(model.parameters()).device
-
     content: list[dict] = [{"type": "image", "image": img} for img in prepared]
     content.append({"type": "text", "text": question})
 
     conversation = [{"role": "user", "content": content}]
 
-    inputs = processor.apply_chat_template(  # type: ignore[operator]
-        conversation,
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-    ).to(device)
-
-    with torch.inference_mode():
-        output = model.generate(**inputs, max_new_tokens=1024)
-
-    trimmed = output[:, inputs["input_ids"].shape[1] :]
-    decoded = processor.decode(trimmed[0], skip_special_tokens=True)  # type: ignore[operator]
-    return decoded
+    return generate_response(conversation, processor, model, max_new_tokens=1024)
