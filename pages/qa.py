@@ -84,9 +84,7 @@ if st.button("Answer", type="primary", disabled=not has_input):
 
         with st.spinner("Generating answer..."):
             with timed() as t:
-                answer = generate_qa_response(
-                    page_images, question, processor, model
-                )
+                answer = generate_qa_response(page_images, question, processor, model)
 
     if not answer:
         st.warning("Model produced no output.")

@@ -1,7 +1,7 @@
 """Tests for the doctags module."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import torch
 from docling_core.types.doc.document import DoclingDocument

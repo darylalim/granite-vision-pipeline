@@ -92,5 +92,3 @@ def generate_doctags(
     trimmed = output[:, inputs["input_ids"].shape[1] :]
     decoded = processor.batch_decode(trimmed, skip_special_tokens=False)[0].lstrip()
     return decoded
-
-

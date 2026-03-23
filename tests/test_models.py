@@ -76,7 +76,9 @@ def test_generate_response_trims_and_decodes() -> None:
     mock_processor.decode.return_value = "Generated text."
 
     conversation = [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]
-    result = generate_response(conversation, mock_processor, mock_model, max_new_tokens=512)
+    result = generate_response(
+        conversation, mock_processor, mock_model, max_new_tokens=512
+    )
 
     # Verify apply_chat_template kwargs
     call_kwargs = mock_processor.apply_chat_template.call_args[1]
