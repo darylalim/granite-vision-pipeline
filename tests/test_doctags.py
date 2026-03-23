@@ -8,7 +8,6 @@ from docling_core.types.doc.document import DoclingDocument
 from PIL import Image
 
 from pipeline.doctags import (
-    create_doctags_model,
     export_markdown,
     generate_doctags,
     get_pdf_page_count,
@@ -100,38 +99,6 @@ def test_export_markdown_returns_string() -> None:
     doc = DoclingDocument(name="test")
     result = export_markdown(doc)
     assert isinstance(result, str)
-
-
-# --- create_doctags_model tests ---
-
-
-@patch("pipeline.doctags.AutoModelForVision2Seq")
-@patch("pipeline.doctags.AutoProcessor")
-def test_create_doctags_model_loads_correct_model(
-    mock_processor_cls: MagicMock,
-    mock_model_cls: MagicMock,
-) -> None:
-    processor, model = create_doctags_model(device="cpu")
-
-    mock_processor_cls.from_pretrained.assert_called_once_with(
-        "ibm-granite/granite-docling-258M"
-    )
-    mock_model_cls.from_pretrained.assert_called_once_with(
-        "ibm-granite/granite-docling-258M"
-    )
-    assert processor is mock_processor_cls.from_pretrained.return_value
-    assert model is mock_model_cls.from_pretrained.return_value.to.return_value
-
-
-@patch("pipeline.doctags.AutoModelForVision2Seq")
-@patch("pipeline.doctags.AutoProcessor")
-def test_create_doctags_model_moves_to_device(
-    mock_processor_cls: MagicMock,
-    mock_model_cls: MagicMock,
-) -> None:
-    create_doctags_model(device="cpu")
-
-    mock_model_cls.from_pretrained.return_value.to.assert_called_once_with("cpu")
 
 
 # --- generate_doctags tests ---

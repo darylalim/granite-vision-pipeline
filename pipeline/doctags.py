@@ -94,17 +94,3 @@ def generate_doctags(
     return decoded
 
 
-def create_doctags_model(
-    device: str | None = None,
-) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
-    """Load Granite Docling 258M for doctags generation.
-
-    When device is None, auto-detects: CUDA if available, else CPU.
-    MPS is excluded for consistency with other pipeline models.
-    """
-    if device is None:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    model_path = "ibm-granite/granite-docling-258M"
-    processor = AutoProcessor.from_pretrained(model_path)
-    model = AutoModelForVision2Seq.from_pretrained(model_path).to(device)
-    return processor, model

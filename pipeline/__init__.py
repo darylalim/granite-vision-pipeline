@@ -1,6 +1,5 @@
 from pipeline.config import convert, create_converter
 from pipeline.doctags import (
-    create_doctags_model,
     export_markdown,
     generate_doctags,
     parse_doctags,
@@ -27,7 +26,6 @@ __all__ = [
     "clear_collection",
     "convert",
     "create_converter",
-    "create_doctags_model",
     "create_embedding_model",
     "create_sam_model",
     "draw_mask",
