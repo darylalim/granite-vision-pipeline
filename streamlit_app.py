@@ -6,9 +6,19 @@ from pathlib import Path
 import streamlit as st
 from docling.exceptions import ConversionError
 
-from pipeline import build_output, convert, create_converter, get_description
+from pipeline import (
+    build_output,
+    convert,
+    create_converter,
+    create_embedding_model,
+    get_collection,
+    get_description,
+    index_elements,
+)
 
 converter = st.cache_resource(create_converter)
+embedding_model = st.cache_resource(create_embedding_model)
+collection = st.cache_resource(get_collection)
 
 st.set_page_config(page_title="Granite Vision Pipeline")
 st.title("Granite Vision Pipeline")
@@ -40,12 +50,27 @@ if st.button("Annotate", type="primary", disabled=not uploaded_file):
         col2.metric("Tables", len(doc.tables))
         col3.metric("Duration (s)", f"{duration_s:.2f}")
 
+        output = build_output(doc, duration_s)
+
         st.download_button(
             label="Download JSON",
-            data=json.dumps(build_output(doc, duration_s), indent=2),
+            data=json.dumps(output, indent=2),
             file_name=f"{uploaded_file.name}_annotations.json",
             mime="application/json",
         )
+
+        try:
+            count = index_elements(
+                output["elements"], uploaded_file.name, embedding_model(), collection()
+            )
+            if count > 0:
+                st.info(f"Indexed {count} elements for search.")
+            else:
+                st.info("No indexable content found (no descriptions or tables).")
+        except Exception:
+            st.warning(
+                "Indexing for search failed, but extraction completed successfully."
+            )
 
         for idx, pic in enumerate(doc.pictures, 1):
             with st.expander(f"Picture {idx}", expanded=idx == 1):
