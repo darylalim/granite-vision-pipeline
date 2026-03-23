@@ -1,7 +1,9 @@
 """Document search and RAG using embeddings and ChromaDB."""
 
 import chromadb
+import torch
 from sentence_transformers import SentenceTransformer
+from transformers import AutoModelForVision2Seq, AutoProcessor
 
 CHROMA_PATH = ".chroma"
 COLLECTION_NAME = "elements"
@@ -208,10 +210,59 @@ def query_index(
     for doc, meta, dist in zip(documents, metadatas, distances):
         similarity = 1.0 - dist
         if similarity >= min_similarity:
-            output.append({
-                "text": doc,
-                "metadata": meta,
-                "similarity": similarity,
-            })
+            output.append(
+                {
+                    "text": doc,
+                    "metadata": meta,
+                    "similarity": similarity,
+                }
+            )
 
     return output
+
+
+def generate_answer(
+    question: str,
+    context: list[dict],
+    processor: AutoProcessor,
+    model: AutoModelForVision2Seq,
+) -> str:
+    """Generate a RAG answer using retrieved context and Granite Vision.
+
+    Constructs a text-only prompt from the context and question, sends to
+    the model via apply_chat_template. Uses max_new_tokens=1024.
+    """
+    context_lines: list[str] = []
+    for i, item in enumerate(context, 1):
+        type_label = item["metadata"].get("type", "element")
+        context_lines.append(f"[Element {i} - {type_label}]: {item['text']}")
+
+    context_str = (
+        "\n".join(context_lines) if context_lines else "(No context available)"
+    )
+
+    prompt = (
+        "Use the following context from a document to answer the question.\n"
+        "If the context does not contain enough information, say so.\n\n"
+        f"Context:\n{context_str}\n\n"
+        f"Question: {question}"
+    )
+
+    conversation = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+
+    device = next(model.parameters()).device
+
+    inputs = processor.apply_chat_template(  # type: ignore[operator]
+        conversation,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(device)
+
+    with torch.inference_mode():
+        output = model.generate(**inputs, max_new_tokens=1024)
+
+    trimmed = output[:, inputs["input_ids"].shape[1] :]
+    decoded = processor.decode(trimmed[0], skip_special_tokens=True)  # type: ignore[operator]
+    return decoded

@@ -1,6 +1,7 @@
 """Tests for the search module."""
 
 import chromadb
+import torch
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -348,7 +349,14 @@ def test_query_index_returns_results() -> None:
         ids=["doc1"],
         documents=["Revenue grew 20% in Q4."],
         embeddings=[[0.1] * 768],
-        metadatas=[{"source": "test.pdf", "type": "picture", "element_number": 1, "reference": "#/pictures/0"}],
+        metadatas=[
+            {
+                "source": "test.pdf",
+                "type": "picture",
+                "element_number": 1,
+                "reference": "#/pictures/0",
+            }
+        ],
     )
 
     results = query_index("What happened to revenue?", mock_model, collection)
@@ -373,7 +381,14 @@ def test_query_index_respects_n_results() -> None:
             ids=[f"doc{i}"],
             documents=[f"Document {i}"],
             embeddings=[[0.5 + i * 0.01] * 768],
-            metadatas=[{"source": "t.pdf", "type": "picture", "element_number": i, "reference": f"#/pictures/{i}"}],
+            metadatas=[
+                {
+                    "source": "t.pdf",
+                    "type": "picture",
+                    "element_number": i,
+                    "reference": f"#/pictures/{i}",
+                }
+            ],
         )
 
     results = query_index("query", mock_model, collection, n_results=2)
@@ -407,7 +422,14 @@ def test_query_index_result_keys() -> None:
         ids=["doc1"],
         documents=["Some text"],
         embeddings=[[0.1] * 768],
-        metadatas=[{"source": "a.pdf", "type": "table", "element_number": 1, "reference": "#/tables/0"}],
+        metadatas=[
+            {
+                "source": "a.pdf",
+                "type": "table",
+                "element_number": 1,
+                "reference": "#/tables/0",
+            }
+        ],
     )
 
     results = query_index("query", mock_model, collection)
@@ -429,15 +451,177 @@ def test_query_index_filters_by_min_similarity() -> None:
         ids=["similar"],
         documents=["Similar text"],
         embeddings=[[1.0] + [0.0] * 767],
-        metadatas=[{"source": "a.pdf", "type": "picture", "element_number": 1, "reference": "#/pictures/0"}],
+        metadatas=[
+            {
+                "source": "a.pdf",
+                "type": "picture",
+                "element_number": 1,
+                "reference": "#/pictures/0",
+            }
+        ],
     )
     collection.upsert(
         ids=["dissimilar"],
         documents=["Different text"],
         embeddings=[[0.0, 1.0] + [0.0] * 766],
-        metadatas=[{"source": "a.pdf", "type": "table", "element_number": 2, "reference": "#/tables/0"}],
+        metadatas=[
+            {
+                "source": "a.pdf",
+                "type": "table",
+                "element_number": 2,
+                "reference": "#/tables/0",
+            }
+        ],
     )
 
-    results = query_index("query", mock_model, collection, n_results=5, min_similarity=0.9)
+    results = query_index(
+        "query", mock_model, collection, n_results=5, min_similarity=0.9
+    )
     assert len(results) == 1
     assert results[0]["text"] == "Similar text"
+
+
+# --- generate_answer tests ---
+
+
+def test_generate_answer_prompt_structure() -> None:
+    from pipeline.search import generate_answer
+
+    mock_processor = MagicMock()
+    mock_model = MagicMock()
+
+    mock_param = MagicMock()
+    mock_param.device = torch.device("cpu")
+    mock_model.parameters.return_value = iter([mock_param])
+
+    mock_processor.apply_chat_template.return_value = MagicMock()
+    mock_processor.apply_chat_template.return_value.to.return_value = {
+        "input_ids": torch.tensor([[1, 2, 3]])
+    }
+    mock_model.generate.return_value = torch.tensor([[1, 2, 3, 4, 5]])
+    mock_processor.decode.return_value = "The answer."
+
+    context = [
+        {
+            "text": "Revenue grew 20%.",
+            "metadata": {
+                "type": "picture",
+                "source": "test.pdf",
+                "element_number": 1,
+                "reference": "#/pictures/0",
+            },
+            "similarity": 0.8,
+        },
+        {
+            "text": "| Q | Rev |\n|---|---|\n| Q4 | 1.2M |",
+            "metadata": {
+                "type": "table",
+                "source": "test.pdf",
+                "element_number": 2,
+                "reference": "#/tables/0",
+            },
+            "similarity": 0.7,
+        },
+    ]
+
+    result = generate_answer(
+        "How did revenue change?", context, mock_processor, mock_model
+    )
+
+    call_args = mock_processor.apply_chat_template.call_args
+    conversation = call_args[0][0]
+    content = conversation[0]["content"]
+
+    assert len(content) == 1
+    assert content[0]["type"] == "text"
+
+    prompt_text = content[0]["text"]
+    assert "[Element 1 - picture]" in prompt_text
+    assert "[Element 2 - table]" in prompt_text
+    assert "Revenue grew 20%." in prompt_text
+    assert "How did revenue change?" in prompt_text
+
+    call_kwargs = mock_processor.apply_chat_template.call_args[1]
+    assert call_kwargs["add_generation_prompt"] is True
+    assert call_kwargs["tokenize"] is True
+    assert call_kwargs["return_dict"] is True
+    assert call_kwargs["return_tensors"] == "pt"
+
+    assert result == "The answer."
+
+
+def test_generate_answer_uses_max_new_tokens() -> None:
+    from pipeline.search import generate_answer
+
+    mock_processor = MagicMock()
+    mock_model = MagicMock()
+
+    mock_param = MagicMock()
+    mock_param.device = torch.device("cpu")
+    mock_model.parameters.return_value = iter([mock_param])
+
+    mock_processor.apply_chat_template.return_value = MagicMock()
+    mock_processor.apply_chat_template.return_value.to.return_value = {
+        "input_ids": torch.tensor([[1, 2]])
+    }
+    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
+    mock_processor.decode.return_value = "answer"
+
+    generate_answer(
+        "q",
+        [{"text": "t", "metadata": {"type": "picture"}, "similarity": 0.8}],
+        mock_processor,
+        mock_model,
+    )
+
+    _, gen_kwargs = mock_model.generate.call_args
+    assert gen_kwargs["max_new_tokens"] == 1024
+
+
+def test_generate_answer_empty_context() -> None:
+    from pipeline.search import generate_answer
+
+    mock_processor = MagicMock()
+    mock_model = MagicMock()
+
+    mock_param = MagicMock()
+    mock_param.device = torch.device("cpu")
+    mock_model.parameters.return_value = iter([mock_param])
+
+    mock_processor.apply_chat_template.return_value = MagicMock()
+    mock_processor.apply_chat_template.return_value.to.return_value = {
+        "input_ids": torch.tensor([[1, 2]])
+    }
+    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
+    mock_processor.decode.return_value = "No context available."
+
+    result = generate_answer("question", [], mock_processor, mock_model)
+
+    mock_model.generate.assert_called_once()
+    assert result == "No context available."
+
+
+def test_generate_answer_missing_type_defaults_to_element() -> None:
+    from pipeline.search import generate_answer
+
+    mock_processor = MagicMock()
+    mock_model = MagicMock()
+
+    mock_param = MagicMock()
+    mock_param.device = torch.device("cpu")
+    mock_model.parameters.return_value = iter([mock_param])
+
+    mock_processor.apply_chat_template.return_value = MagicMock()
+    mock_processor.apply_chat_template.return_value.to.return_value = {
+        "input_ids": torch.tensor([[1, 2]])
+    }
+    mock_model.generate.return_value = torch.tensor([[1, 2, 3]])
+    mock_processor.decode.return_value = "answer"
+
+    context = [{"text": "some text", "metadata": {}, "similarity": 0.5}]
+    generate_answer("q", context, mock_processor, mock_model)
+
+    prompt_text = mock_processor.apply_chat_template.call_args[0][0][0]["content"][0][
+        "text"
+    ]
+    assert "[Element 1 - element]" in prompt_text
