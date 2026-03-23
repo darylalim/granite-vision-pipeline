@@ -34,7 +34,7 @@ def get_collection() -> chromadb.Collection:
 
 def clear_collection(collection: chromadb.Collection) -> None:
     """Delete all documents from a ChromaDB collection."""
-    ids = collection.get()["ids"]
+    ids = collection.get(include=[])["ids"]
     if ids:
         collection.delete(ids=ids)
 
