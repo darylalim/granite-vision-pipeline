@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Streamlit web app with four capabilities:
+Streamlit web app with five capabilities:
 
 1. **PDF Extraction** — extract and describe pictures and tables in PDF documents using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)
 2. **Image Segmentation** — segment objects in images using natural language prompts, with [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) + [SAM](https://huggingface.co/facebook/sam-vit-huge) refinement
@@ -35,13 +35,13 @@ uv run pytest tests/test_file.py::test_name  # run single test
 ## Dependencies
 
 Runtime (`[project.dependencies]`):
+- `chromadb` — persistent local vector database for search index
 - `docling[vlm]` — PDF parsing, table extraction, VLM-based picture description
 - `pypdfium2` — PDF page rendering for doctags generation
+- `sentence-transformers` — embedding model loading for document search
 - `streamlit` — web UI framework
 - `torch` — tensor operations and model inference
 - `transformers` — model loading (Granite Vision, SAM, Granite Docling)
-- `sentence-transformers` — embedding model loading for document search
-- `chromadb` — persistent local vector database for search index
 
 Dev (`[dependency-groups] dev`):
 - `pytest` — testing
