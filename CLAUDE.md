@@ -108,5 +108,6 @@ Overrides (`[tool.uv]`):
 - `tests/test_doctags.py` — `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; `parse_doctags()` with sample doctags strings; `generate_doctags()` with mocked model; `export_markdown()` verification; no model weights required
 - `tests/test_qa.py` — `resize_for_qa()` dimension and aspect ratio tests; `generate_qa_response()` prompt structure, validation, and delegation to `generate_response()`; no model weights required
 - `tests/test_search.py` — `create_embedding_model()` and `get_collection()` with mocks; `index_elements()` with various element types and idempotency; `query_index()` with similarity filtering; `generate_answer()` prompt structure and delegation to `generate_response()`; `clear_collection()` verification; uses in-memory ChromaDB client, no model weights required
+- `tests/test_ui_helpers.py` — `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_metrics_bar()` column creation and metric rendering with mocked Streamlit; `show_sidebar_status()` model status display, index count formatting, and singular/plural handling with mocked Streamlit
 
-All tests import directly from `pipeline` — no Streamlit mocking needed.
+Pipeline tests import directly from `pipeline` — no Streamlit mocking needed. UI helper tests mock `streamlit` via `unittest.mock.patch`.
