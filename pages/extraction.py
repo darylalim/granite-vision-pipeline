@@ -46,11 +46,10 @@ show_help(
     model_info="[granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) via Docling",
 )
 
-col_upload, col_example = st.columns([3, 1])
+col_upload, col_example = st.columns([3, 1], vertical_alignment="bottom")
 with col_upload:
     uploaded_file = st.file_uploader("Upload file", type=["pdf"])
 with col_example:
-    st.markdown("")  # spacing
     if st.button("Try with example"):
         st.session_state["use_example_extraction"] = True
         st.rerun()
@@ -156,12 +155,15 @@ if st.button("Annotate", type="primary", disabled=not active_file):
     except ConversionError as e:
         st.error(str(e))
 
-# Sidebar status
-coll = collection()
+# Sidebar status — only query index count if embedding model has been used
+index_count = None
+if st.session_state.get("model_embedding"):
+    index_count = collection().count()
+
 show_sidebar_status(
     models={
         "Docling": st.session_state.get("model_docling", False),
         "Embedding": st.session_state.get("model_embedding", False),
     },
-    index_count=coll.count(),
+    index_count=index_count,
 )

@@ -13,7 +13,7 @@ from PIL import Image
 
 def show_upload_preview(
     uploaded_files: object | list[object],
-    max_height: int = 200,
+    thumbnail_size: int = 200,
 ) -> None:
     """Show thumbnail preview of uploaded file(s).
 
@@ -40,9 +40,9 @@ def show_upload_preview(
             else:
                 try:
                     img = Image.open(f)
-                    st.image(img, caption=name, width=max_height)
+                    st.image(img, caption=name, width=thumbnail_size)
                     f.seek(0)
-                except Exception:
+                except (OSError, ValueError):
                     st.caption(f"**{name}**")
 
 
@@ -70,17 +70,16 @@ def show_metrics_bar(metrics: dict[str, object]) -> None:
 class _ExampleFile(io.BytesIO):
     """BytesIO wrapper with .name and .size attributes for UploadedFile compat."""
 
-    name: str
-    size: int
+    def __init__(self, data: bytes, name: str = "", size: int = 0) -> None:
+        super().__init__(data)
+        self.name = name
+        self.size = size
 
 
 def load_example(file_path: str) -> _ExampleFile:
     """Load a file as a BytesIO wrapper that substitutes for st.UploadedFile."""
     data = Path(file_path).read_bytes()
-    buf = _ExampleFile(data)
-    buf.name = Path(file_path).name
-    buf.size = len(data)
-    return buf
+    return _ExampleFile(data, name=Path(file_path).name, size=len(data))
 
 
 def show_sidebar_status(

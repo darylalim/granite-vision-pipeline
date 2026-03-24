@@ -41,16 +41,14 @@ show_help(
     model_info="[granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)",
 )
 
-col_upload, col_ex_img, col_ex_pdf = st.columns([3, 1, 1])
+col_upload, col_ex_img, col_ex_pdf = st.columns([3, 1, 1], vertical_alignment="bottom")
 with col_upload:
     uploaded_file = st.file_uploader("Upload file", type=["png", "jpg", "jpeg", "pdf"])
 with col_ex_img:
-    st.markdown("")  # spacing
     if st.button("Example image"):
         st.session_state["use_example_doctags"] = "image"
         st.rerun()
 with col_ex_pdf:
-    st.markdown("")  # spacing
     if st.button("Example PDF"):
         st.session_state["use_example_doctags"] = "pdf"
         st.rerun()

@@ -38,7 +38,7 @@ show_help(
     model_info="[granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)",
 )
 
-col_upload, col_example = st.columns([3, 1])
+col_upload, col_example = st.columns([3, 1], vertical_alignment="bottom")
 with col_upload:
     uploaded_files = st.file_uploader(
         "Upload file(s)",
@@ -46,7 +46,6 @@ with col_upload:
         accept_multiple_files=True,
     )
 with col_example:
-    st.markdown("")  # spacing
     if st.button("Try with example"):
         st.session_state["use_example_qa"] = True
         st.rerun()

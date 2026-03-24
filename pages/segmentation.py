@@ -36,11 +36,10 @@ show_help(
     ),
 )
 
-col_upload, col_example = st.columns([3, 1])
+col_upload, col_example = st.columns([3, 1], vertical_alignment="bottom")
 with col_upload:
     uploaded_file = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
 with col_example:
-    st.markdown("")  # spacing
     if st.button("Try with example"):
         st.session_state["use_example_segmentation"] = True
         st.rerun()
