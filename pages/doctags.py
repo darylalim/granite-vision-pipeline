@@ -11,25 +11,76 @@ from pipeline import (
     temp_upload,
     timed,
 )
+from ui_helpers import (
+    load_example,
+    show_help,
+    show_metrics_bar,
+    show_sidebar_status,
+    show_upload_preview,
+)
 
 doctags_model = st.cache_resource(create_doctags_model)
 
-st.title("DocTags Generation (Experimental)")
+EXAMPLE_IMAGE = "examples/sample.jpg"
+EXAMPLE_PDF = "examples/sample.pdf"
+
+st.title("Document Parsing")
 st.write(
     "Parse document images to structured text in doctags format. "
     "Powered by IBM Granite Docling."
 )
 
-uploaded_file = st.file_uploader("Upload file", type=["png", "jpg", "jpeg", "pdf"])
+show_help(
+    supported_formats="PNG, JPG, JPEG, PDF",
+    description=(
+        "Converts document images or PDF pages into doctags — a structured XML "
+        "format that captures text, layout, and document structure. The doctags "
+        "output can be further converted to Markdown. For PDFs, each page is "
+        "processed independently."
+    ),
+    model_info="[granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)",
+)
 
-is_pdf = uploaded_file is not None and uploaded_file.name.lower().endswith(".pdf")
+col_upload, col_ex_img, col_ex_pdf = st.columns([3, 1, 1])
+with col_upload:
+    uploaded_file = st.file_uploader("Upload file", type=["png", "jpg", "jpeg", "pdf"])
+with col_ex_img:
+    st.markdown("")  # spacing
+    if st.button("Example image"):
+        st.session_state["use_example_doctags"] = "image"
+        st.rerun()
+with col_ex_pdf:
+    st.markdown("")  # spacing
+    if st.button("Example PDF"):
+        st.session_state["use_example_doctags"] = "pdf"
+        st.rerun()
 
-if st.button("Generate", type="primary", disabled=not uploaded_file):
-    assert uploaded_file is not None
+# Resolve file: user upload takes priority over example
+active_file = uploaded_file
+if uploaded_file:
+    st.session_state.pop("use_example_doctags", None)
+elif st.session_state.get("use_example_doctags") == "image":
+    active_file = load_example(EXAMPLE_IMAGE)
+    st.caption("Using example image")
+elif st.session_state.get("use_example_doctags") == "pdf":
+    active_file = load_example(EXAMPLE_PDF)
+    st.caption("Using example PDF")
+
+if active_file:
+    show_upload_preview(active_file)
+
+is_pdf = active_file is not None and getattr(active_file, "name", "").lower().endswith(
+    ".pdf"
+)
+
+if st.button("Generate", type="primary", disabled=not active_file):
+    assert active_file is not None
+    file_name = getattr(active_file, "name", "document")
     processor, model = doctags_model()
+    st.session_state["model_docling"] = True
 
     if is_pdf:
-        with temp_upload(uploaded_file) as tmp_path:
+        with temp_upload(active_file) as tmp_path:
             with st.spinner("Rendering PDF pages..."):
                 page_images = render_pdf_pages(tmp_path)
 
@@ -55,9 +106,12 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
 
             progress.empty()
 
-            col1, col2 = st.columns(2)
-            col1.metric("Pages", num_pages)
-            col2.metric("Duration (s)", f"{t.duration_s:.2f}")
+            show_metrics_bar(
+                {
+                    "Pages": num_pages,
+                    "Duration (s)": f"{t.duration_s:.2f}",
+                }
+            )
 
             combined_doctags = "\n\n".join(all_doctags)
             combined_markdown = "\n\n---\n\n".join(md for md in all_markdown if md)
@@ -66,13 +120,13 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
             dl_col1.download_button(
                 label="Download all doctags",
                 data=combined_doctags,
-                file_name=f"{uploaded_file.name}_doctags.txt",
+                file_name=f"{file_name}_doctags.txt",
                 mime="text/plain",
             )
             dl_col2.download_button(
                 label="Download all Markdown",
                 data=combined_markdown,
-                file_name=f"{uploaded_file.name}_doctags.md",
+                file_name=f"{file_name}_doctags.md",
                 mime="text/markdown",
             )
 
@@ -95,13 +149,13 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
                         col_output.warning("Model produced no output for this page.")
 
     else:
-        image = Image.open(uploaded_file).convert("RGB")
+        image = Image.open(active_file).convert("RGB")
 
         with st.spinner("Generating doctags... This may take a few minutes."):
             with timed() as t:
                 raw_doctags = generate_doctags(image, processor, model)
 
-        st.metric("Duration (s)", f"{t.duration_s:.2f}")
+        show_metrics_bar({"Duration (s)": f"{t.duration_s:.2f}"})
 
         col_img, col_output = st.columns(2)
         col_img.image(image, caption="Original")
@@ -117,7 +171,7 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
                 col_output.download_button(
                     label="Download Markdown",
                     data=md,
-                    file_name="doctags_output.md",
+                    file_name=f"{file_name}_doctags.md",
                     mime="text/markdown",
                 )
             else:
@@ -126,8 +180,12 @@ if st.button("Generate", type="primary", disabled=not uploaded_file):
             col_output.download_button(
                 label="Download raw doctags",
                 data=raw_doctags,
-                file_name="doctags_output.txt",
+                file_name=f"{file_name}_doctags.txt",
                 mime="text/plain",
             )
         else:
             col_output.warning("Model produced no output.")
+
+show_sidebar_status(
+    models={"Docling": st.session_state.get("model_docling", False)},
+)
