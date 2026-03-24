@@ -6,7 +6,7 @@ Streamlit web app with five capabilities:
 
 1. **PDF Extraction** — extract and describe pictures and tables in PDF documents using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)
 2. **Image Segmentation** — segment objects in images using natural language prompts, with [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) + [SAM](https://huggingface.co/facebook/sam-vit-huge) refinement
-3. **DocTags Generation** — parse document images and PDFs to structured text in doctags format using [granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)
+3. **Document Parsing** — parse document images and PDFs to structured text in doctags format using [granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)
 4. **Multipage QA** — answer questions across up to 8 document pages using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) with images resized to 768px max dimension
 5. **Document Search** — search across extracted content and get RAG-powered answers using [granite-embedding-english-r2](https://huggingface.co/ibm-granite/granite-embedding-english-r2) + [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)
 
@@ -67,11 +67,15 @@ Overrides (`[tool.uv]`):
 
 ### UI
 
-- `streamlit_app.py` — PDF extraction page; file upload, annotation, per-picture and per-table preview in expanders
-- `pages/segmentation.py` — segmentation page; image upload, text prompt, mask overlay preview, mask download
-- `pages/doctags.py` — doctags generation page; image/PDF upload, raw doctags display, markdown preview, per-page expanders for PDFs
-- `pages/qa.py` — multipage QA page; PDF/image upload, page selection, question input, answer display with thumbnails
-- `pages/search.py` — document search page; question input, RAG answer display with source elements, index status and clear button
+- `streamlit_app.py` — navigation hub using `st.navigation()` / `st.Page()` to route all pages; calls `st.set_page_config()` once; subpages must not call it
+- `streamlit_home.py` — landing page with navigation cards linking to each capability; no model loading
+- `ui_helpers.py` — shared UI functions: `show_upload_preview()` for file thumbnails, `show_help()` for "How this works" expanders, `show_metrics_bar()` for result metrics, `load_example()` for demo mode files, `show_sidebar_status()` for model/index status; no pipeline imports
+- `pages/extraction.py` — PDF extraction page; file upload, "Try with example", annotation, per-picture and per-table preview in expanders, auto-indexes for search
+- `pages/segmentation.py` — image segmentation page; image upload, text prompt, "Try with example", mask overlay preview, mask download
+- `pages/doctags.py` — document parsing page; image/PDF upload, dual "Try with example" (image/PDF), raw doctags display, markdown preview, per-page expanders for PDFs
+- `pages/qa.py` — multipage QA page; PDF/image upload, "Try with example", page selection, question input, answer display with correct page numbering
+- `pages/search.py` — document search page; question input, RAG answer display with source elements, indexed document summary, index status and clear button
+- `examples/` — sample files for demo mode (`sample.jpg` with colored shapes, `sample.pdf` copied from test fixtures)
 
 ### Key Details
 
@@ -82,8 +86,9 @@ Overrides (`[tool.uv]`):
 - Segmentation loads Granite Vision and SAM model instances (not shared with docling's internal model)
 - DocTags generation uses `ibm-granite/granite-docling-258M` loaded directly via Transformers (not Docling's VlmPipeline), with prompt `"Convert this page to docling."`
 - For PDFs in doctags, pages are rendered to images via pypdfium2 at 144 DPI, then each page is processed independently
-- Adding `pages/` directory activates Streamlit multipage navigation with sidebar
-- All models are cached via `st.cache_resource` at the page level
+- `st.navigation()` / `st.Page()` in `streamlit_app.py` controls page routing and sidebar labels; display names are decoupled from filenames
+- Each page has a "Try with example" button using `st.session_state` flags and `load_example()` from `ui_helpers.py`; user uploads clear the example flag
+- All models are cached via `st.cache_resource` at the page level; model load status tracked via `st.session_state` flags shown in sidebar
 - QA images are resized so the longer dimension is 768px to stay within GPU memory limits for up to 8 pages
 - PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered via `render_pdf_pages(page_indices=...)`
 - QA page validates uploads: rejects mixed PDF + image uploads and multiple PDFs
