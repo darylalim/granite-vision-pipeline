@@ -96,7 +96,7 @@ Remaining re-exports:
 
 Remove `create_doctags_model()` function.
 
-Update `_load_vision_model()` docstring — remove SAM/MPS reference ("MPS is excluded due to limited operator support in SAM/transformers").
+Update `_load_vision_model()` docstring — remove SAM/MPS reference ("MPS is excluded due to limited operator support in SAM/transformers"). The MPS exclusion in the code itself stays for now — Granite Vision operator support on MPS is unverified and CPU remains the safe default.
 
 Update `create_granite_vision_model()` docstring — remove "shared across segmentation" reference.
 
@@ -122,7 +122,7 @@ Remove `test_create_doctags_model_uses_correct_repo` test.
 
 ### `tests/test_ui_helpers.py`
 
-- Remove or update `test_load_example_with_real_example_file` — it loads `examples/sample.jpg` which is being deleted. Update to use `examples/sample.pdf` instead.
+- Update `test_load_example_with_real_example_file` — it loads `examples/sample.jpg` which is being deleted. Update to use `examples/sample.pdf` instead. Remove the `Image.open()` and dimension assertions (PDF is not an image); keep `result.name == "sample.pdf"` and `result.size > 0`.
 - Remove `test_show_sidebar_status_shows_index_count`, `test_show_sidebar_status_singular_document`, and `test_show_sidebar_status_no_index_count` — these test the removed `index_count` parameter.
 
 ### `pyproject.toml`
@@ -144,6 +144,7 @@ Update all sections to reflect two-feature app:
 - Architecture: remove pipeline modules, pages, and test references for deleted features; add `pipeline/pdf.py` and `tests/test_pdf.py`
 - Dependencies: remove `chromadb` and `sentence-transformers`
 - Key Details: remove segmentation, doctags, search, and SAM references
+- Examples: remove `sample.jpg` reference from examples directory description
 
 ### `README.md`
 
