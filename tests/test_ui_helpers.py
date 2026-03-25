@@ -91,13 +91,10 @@ def test_load_example_is_seekable(tmp_path: Path) -> None:
 
 def test_load_example_with_real_example_file() -> None:
     """Test with actual example files in the repo."""
-    result = load_example("examples/sample.jpg")
+    result = load_example("examples/sample.pdf")
 
-    assert result.name == "sample.jpg"
+    assert result.name == "sample.pdf"
     assert result.size > 0
-    # Verify it's a valid image
-    img = Image.open(result)
-    assert img.size == (640, 480)
 
 
 # --- show_metrics_bar tests ---
@@ -138,38 +135,12 @@ def test_show_metrics_bar_single_metric(mock_st: MagicMock) -> None:
 
 @patch("ui_helpers.st")
 def test_show_sidebar_status_shows_models(mock_st: MagicMock) -> None:
-    show_sidebar_status({"Granite Vision": True, "SAM": False})
+    show_sidebar_status({"Granite Vision": True, "Docling": False})
 
-    # with st.sidebar: sets context, but calls go to st.markdown/st.text
     mock_st.markdown.assert_any_call("**Models**")
     text_calls = mock_st.text.call_args_list
     assert call("Granite Vision: Loaded") in text_calls
-    assert call("SAM: Not loaded") in text_calls
-
-
-@patch("ui_helpers.st")
-def test_show_sidebar_status_shows_index_count(mock_st: MagicMock) -> None:
-    show_sidebar_status({"Model": True}, index_count=5)
-
-    mock_st.markdown.assert_any_call("**Search Index**")
-    mock_st.text.assert_any_call("5 documents indexed")
-
-
-@patch("ui_helpers.st")
-def test_show_sidebar_status_singular_document(mock_st: MagicMock) -> None:
-    show_sidebar_status({"Model": True}, index_count=1)
-
-    mock_st.text.assert_any_call("1 document indexed")
-
-
-@patch("ui_helpers.st")
-def test_show_sidebar_status_no_index_count(mock_st: MagicMock) -> None:
-    show_sidebar_status({"Model": True})
-
-    # Should show Models but not Search Index
-    markdown_calls = [c[0][0] for c in mock_st.markdown.call_args_list]
-    assert "**Models**" in markdown_calls
-    assert "**Search Index**" not in markdown_calls
+    assert call("Docling: Not loaded") in text_calls
 
 
 # --- show_upload_preview tests ---

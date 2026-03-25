@@ -84,15 +84,10 @@ def load_example(file_path: str) -> _ExampleFile:
 
 def show_sidebar_status(
     models: dict[str, bool],
-    index_count: int | None = None,
 ) -> None:
-    """Show model status and optional search index count in the sidebar."""
+    """Show model status in the sidebar."""
     with st.sidebar:
         st.markdown("**Models**")
         for name, loaded in models.items():
             status = "Loaded" if loaded else "Not loaded"
             st.text(f"{name}: {status}")
-
-        if index_count is not None:
-            st.markdown("**Search Index**")
-            st.text(f"{index_count} document{'s' if index_count != 1 else ''} indexed")
