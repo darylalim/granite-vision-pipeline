@@ -2,13 +2,10 @@
 
 ## Project Overview
 
-Streamlit web app with five capabilities:
+Streamlit web app with two capabilities:
 
 1. **PDF Extraction** — extract and describe pictures and tables in PDF documents using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)
-2. **Image Segmentation** — segment objects in images using natural language prompts, with [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) + [SAM](https://huggingface.co/facebook/sam-vit-huge) refinement
-3. **Document Parsing** — parse document images and PDFs to structured text in doctags format using [granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)
-4. **Multipage QA** — answer questions across up to 8 document pages using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) with images resized to 768px max dimension
-5. **Document Search** — search across extracted content and get RAG-powered answers using [granite-embedding-english-r2](https://huggingface.co/ibm-granite/granite-embedding-english-r2) + [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)
+2. **Multipage QA** — answer questions across up to 8 document pages using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) with images resized to 768px max dimension
 
 ## Setup
 
@@ -35,13 +32,11 @@ uv run pytest tests/test_file.py::test_name  # run single test
 ## Dependencies
 
 Runtime (`[project.dependencies]`):
-- `chromadb` — persistent local vector database for search index
 - `docling[vlm]` — PDF parsing, table extraction, VLM-based picture description
 - `pypdfium2` — PDF page rendering and page counting
-- `sentence-transformers` — embedding model loading for document search
 - `streamlit` — web UI framework
 - `torch` — tensor operations and model inference
-- `transformers` — model loading (Granite Vision, SAM, Granite Docling)
+- `transformers` — model loading (Granite Vision)
 
 Dev (`[dependency-groups] dev`):
 - `pytest` — testing
@@ -56,58 +51,42 @@ Overrides (`[tool.uv]`):
 ### Pipeline
 
 - `pipeline/__init__.py` — re-exports public API
-- `pipeline/models.py` — `_load_vision_model()` shared loader; `create_granite_vision_model()` for Granite Vision 3.3 2B (shared across segmentation, QA, and RAG); `create_doctags_model()` for Granite Docling 258M; `generate_response()` shared generate-trim-decode helper
+- `pipeline/models.py` — `_load_vision_model()` shared loader; `create_granite_vision_model()` for Granite Vision 3.3 2B (shared across QA and PDF extraction); `generate_response()` shared generate-trim-decode helper
 - `pipeline/utils.py` — `temp_upload()` context manager for temporary file handling; `timed()` context manager for wall-clock timing
 - `pipeline/config.py` — `create_converter()` factory; `convert()` wrapper; warning filters for upstream docling/transformers deprecations
 - `pipeline/output.py` — `build_output()` produces a unified `elements` array from pictures and tables; `get_description()` extracts picture descriptions from `meta` with fallback to `annotations`; `get_table_content()` extracts table markdown and structured column/row data
-- `pipeline/segmentation.py` — `segment()` runs Granite Vision referring segmentation + SAM refinement via `generate_response()`; `draw_mask()` for overlay visualization; `create_sam_model()` factory; internal helpers for RLE parsing, mask processing, point sampling, and logit computation
-- `pipeline/doctags.py` — `generate_doctags()` inference (different generation pattern, not using `generate_response()`); `parse_doctags()` conversion to DoclingDocument; `export_markdown()` wrapper; `render_pdf_pages()` PDF-to-image rendering; `get_pdf_page_count()` for page count without rendering
+- `pipeline/pdf.py` — `render_pdf_pages()` PDF-to-image rendering; `get_pdf_page_count()` for page count without rendering
 - `pipeline/qa.py` — `resize_for_qa()` image resizing; `generate_qa_response()` multi-image QA (delegates to `generate_response()`)
-- `pipeline/search.py` — `create_embedding_model()` factory; `get_collection()` ChromaDB factory; `index_elements()` embedding and storage; `query_index()` similarity search; `generate_answer()` RAG generation (delegates to `generate_response()`); `clear_collection()` index reset
 
 ### UI
 
 - `streamlit_app.py` — navigation hub using `st.navigation()` / `st.Page()` to route all pages; calls `st.set_page_config()` once; subpages must not call it
-- `streamlit_home.py` — landing page with navigation cards linking to each capability; no model loading
-- `ui_helpers.py` — shared UI functions: `show_upload_preview()` for file thumbnails, `show_help()` for "How this works" expanders, `show_metrics_bar()` for result metrics, `load_example()` for demo mode files, `show_sidebar_status()` for model/index status; no pipeline imports
-- `pages/extraction.py` — PDF extraction page; file upload, "Try with example", annotation, per-picture and per-table preview in expanders, auto-indexes for search
-- `pages/segmentation.py` — image segmentation page; image upload, text prompt, "Try with example", mask overlay preview, mask download
-- `pages/doctags.py` — document parsing page; image/PDF upload, dual "Try with example" (image/PDF), raw doctags display, markdown preview, per-page expanders for PDFs
+- `ui_helpers.py` — shared UI functions: `show_upload_preview()` for file thumbnails, `show_help()` for "How this works" expanders, `show_metrics_bar()` for result metrics, `load_example()` for demo mode files, `show_sidebar_status()` for model status; no pipeline imports
+- `pages/extraction.py` — PDF extraction page; file upload, "Try with example", annotation, per-picture and per-table preview in expanders
 - `pages/qa.py` — multipage QA page; PDF/image upload, "Try with example", page selection, question input, answer display with correct page numbering
-- `pages/search.py` — document search page; question input, RAG answer display with source elements, indexed document summary, index status and clear button
-- `examples/` — sample files for demo mode (`sample.jpg` with colored shapes, `sample.pdf` copied from test fixtures)
+- `examples/` — sample files for demo mode (`sample.pdf` copied from test fixtures)
 
 ### Key Details
 
 - `convert()` accepts an optional `converter` parameter to reuse a cached instance, avoiding model reload on each call
 - `get_description()` falls back to `pic.annotations` because docling appends `DescriptionAnnotation` after `PictureItem` construction, so the `meta` migration validator doesn't run
 - Output JSON contains `document_info` (picture count, table count, timing) and an `elements` array with `type` discriminator (`"picture"` or `"table"`) and type-specific `content`
-- Segmentation, QA, and RAG answer generation share `create_granite_vision_model()`; when cached via `st.cache_resource`, one model instance is loaded across pages
-- Segmentation loads Granite Vision and SAM model instances (not shared with docling's internal model)
-- DocTags generation uses `ibm-granite/granite-docling-258M` loaded directly via Transformers (not Docling's VlmPipeline), with prompt `"Convert this page to docling."`
-- For PDFs in doctags, pages are rendered to images via pypdfium2 at 144 DPI, then each page is processed independently
+- QA and PDF extraction share `create_granite_vision_model()`; when cached via `st.cache_resource`, one model instance is loaded across pages
 - `st.navigation()` / `st.Page()` in `streamlit_app.py` controls page routing and sidebar labels; display names are decoupled from filenames
 - Each page has a "Try with example" button using `st.session_state` flags and `load_example()` from `ui_helpers.py`; user uploads clear the example flag
 - All models are cached via `st.cache_resource` at the page level; model load status tracked via `st.session_state` flags shown in sidebar
 - QA images are resized so the longer dimension is 768px to stay within GPU memory limits for up to 8 pages
 - PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered via `render_pdf_pages(page_indices=...)`
 - QA page validates uploads: rejects mixed PDF + image uploads and multiple PDFs
-- Search uses `ibm-granite/granite-embedding-english-r2` (sentence-transformers) for embeddings, stored in ChromaDB at `.chroma/`
-- Elements are indexed per-element from `build_output()` result; elements exceeding 8K tokens are chunked with ~200 token overlap
-- `generate_answer()` uses `generate_response()` with a text-only prompt (no images)
-- Re-indexing the same PDF is idempotent via `collection.upsert()` with `source:reference` document IDs
-- `query_index()` filters by cosine similarity threshold (default 0.3)
 
 ## Tests
 
 - `tests/test_config.py` — `create_converter()` factory with pipeline option verification; `convert()` with and without provided converter
 - `tests/test_output.py` — `build_output()`, `build_element()`, `get_description()`, `get_table_content()` with real Docling objects; covers pictures, tables, mixed documents, annotations fallback, meta priority
-- `tests/test_models.py` — `_load_vision_model()`, `create_granite_vision_model()`, `create_doctags_model()`, `generate_response()` with mocked transformers classes; no model weights required
+- `tests/test_models.py` — `_load_vision_model()`, `create_granite_vision_model()`, `generate_response()` with mocked transformers classes; no model weights required
 - `tests/test_utils.py` — `temp_upload()` file creation, cleanup, and exception safety; `timed()` duration measurement
-- `tests/test_segmentation.py` — `create_sam_model()`, `segment()`, `extract_segmentation()`, `prepare_mask()`, `sample_points()`, `compute_logits_from_mask()`, `draw_mask()` unit tests; no model weights required
-- `tests/test_doctags.py` — `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; `parse_doctags()` with sample doctags strings; `generate_doctags()` with mocked model; `export_markdown()` verification; no model weights required
+- `tests/test_pdf.py` — `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; no model weights required
 - `tests/test_qa.py` — `resize_for_qa()` dimension and aspect ratio tests; `generate_qa_response()` prompt structure, validation, and delegation to `generate_response()`; no model weights required
-- `tests/test_search.py` — `create_embedding_model()` and `get_collection()` with mocks; `index_elements()` with various element types and idempotency; `query_index()` with similarity filtering; `generate_answer()` prompt structure and delegation to `generate_response()`; `clear_collection()` verification; uses in-memory ChromaDB client, no model weights required
-- `tests/test_ui_helpers.py` — `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_metrics_bar()` column creation and metric rendering with mocked Streamlit; `show_sidebar_status()` model status display, index count formatting, and singular/plural handling with mocked Streamlit
+- `tests/test_ui_helpers.py` — `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_metrics_bar()` column creation and metric rendering with mocked Streamlit; `show_sidebar_status()` model status display with mocked Streamlit
 
 Pipeline tests import directly from `pipeline` — no Streamlit mocking needed. UI helper tests mock `streamlit` via `unittest.mock.patch`.
