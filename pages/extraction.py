@@ -1,5 +1,4 @@
 import json
-from typing import cast
 
 import streamlit as st
 from docling.exceptions import ConversionError
@@ -9,10 +8,7 @@ from pipeline import (
     build_output,
     convert,
     create_converter,
-    create_embedding_model,
-    get_collection,
     get_description,
-    index_elements,
     temp_upload,
     timed,
 )
@@ -25,8 +21,6 @@ from ui_helpers import (
 )
 
 converter = st.cache_resource(create_converter)
-embedding_model = st.cache_resource(create_embedding_model)
-collection = st.cache_resource(get_collection)
 
 EXAMPLE_PDF = "examples/sample.pdf"
 
@@ -40,8 +34,7 @@ show_help(
     description=(
         "Uploads a PDF and uses Docling to extract pictures and tables. "
         "Pictures are described using Granite Vision. Tables are parsed into "
-        "structured data. Results are available as a JSON download and are "
-        "automatically indexed for the Document Search page."
+        "structured data. Results are available as a JSON download."
     ),
     model_info="[granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b) via Docling",
 )
@@ -133,37 +126,11 @@ if st.button("Annotate", type="primary", disabled=not active_file):
             mime="application/json",
         )
 
-        try:
-            count = index_elements(
-                cast(list[dict], output["elements"]),
-                file_name,
-                embedding_model(),
-                collection(),
-            )
-            st.session_state["model_embedding"] = True
-            if count > 0:
-                st.info(f"Indexed {count} elements for search.")
-            else:
-                st.info("No indexable content found (no descriptions or tables).")
-        except Exception:
-            st.warning(
-                "Indexing for search failed, but extraction completed successfully."
-            )
-
         _render_elements(doc)
 
     except ConversionError as e:
         st.error(str(e))
 
-# Sidebar status — only query index count if embedding model has been used
-index_count = None
-if st.session_state.get("model_embedding"):
-    index_count = collection().count()
-
 show_sidebar_status(
-    models={
-        "Docling": st.session_state.get("model_docling", False),
-        "Embedding": st.session_state.get("model_embedding", False),
-    },
-    index_count=index_count,
+    models={"Docling": st.session_state.get("model_docling", False)},
 )
