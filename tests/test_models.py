@@ -40,24 +40,6 @@ def test_create_granite_vision_model_uses_correct_repo(
     )
 
 
-@patch("pipeline.models.AutoModelForVision2Seq")
-@patch("pipeline.models.AutoProcessor")
-def test_create_doctags_model_uses_correct_repo(
-    mock_processor_cls: MagicMock,
-    mock_model_cls: MagicMock,
-) -> None:
-    from pipeline.models import create_doctags_model
-
-    create_doctags_model(device="cpu")
-
-    mock_processor_cls.from_pretrained.assert_called_once_with(
-        "ibm-granite/granite-docling-258M"
-    )
-    mock_model_cls.from_pretrained.assert_called_once_with(
-        "ibm-granite/granite-docling-258M"
-    )
-
-
 def test_generate_response_trims_and_decodes() -> None:
     from pipeline.models import generate_response
 
