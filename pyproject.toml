@@ -1,13 +1,11 @@
 [project]
 name = "granite-vision-pipeline"
 version = "0.6.0"
-description = "Extract and describe pictures and tables in PDFs, segment objects in images, parse documents to structured text, answer questions across multiple document pages, and search extracted content with RAG"
+description = "Extract and describe pictures and tables in PDFs, and answer questions across multiple document pages"
 requires-python = ">=3.12"
 dependencies = [
-    "chromadb",
     "docling[vlm]",
     "pypdfium2",
-    "sentence-transformers",
     "streamlit",
     "torch",
     "transformers",

@@ -14,5 +14,3 @@ dist/
 *.gguf
 *.onnx
 
-# Vector database
-.chroma/
