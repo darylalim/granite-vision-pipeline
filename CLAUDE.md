@@ -32,6 +32,7 @@ Runtime (`[project.dependencies]`):
 - `pypdfium2` — PDF page rendering and page counting
 - `streamlit` — web UI framework
 - `torch` — tensor operations and model inference
+- `torchvision` — fast image preprocessing for vision models
 - `transformers` — model loading (Granite Vision)
 
 Dev (`[dependency-groups] dev`):
