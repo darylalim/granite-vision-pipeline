@@ -21,10 +21,7 @@ def _load_vision_model(
 def create_granite_vision_model(
     device: str | None = None,
 ) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
-    """Load Granite Vision 3.3 2B.
-
-    Shared across QA and PDF extraction (via Docling).
-    """
+    """Load Granite Vision 3.3 2B."""
     return _load_vision_model("ibm-granite/granite-vision-3.3-2b", device)
 
 
