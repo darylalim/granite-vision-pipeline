@@ -58,13 +58,20 @@ def test_resize_custom_max_dim() -> None:
 
 
 def test_generate_qa_response_rejects_empty_images() -> None:
-    with pytest.raises(ValueError, match="1 to 8"):
+    with pytest.raises(ValueError, match="2 to 8"):
         generate_qa_response([], "What is this?", MagicMock(), MagicMock())
+
+
+def test_generate_qa_response_rejects_single_image() -> None:
+    with pytest.raises(ValueError, match="2 to 8"):
+        generate_qa_response(
+            [Image.new("RGB", (100, 100))], "What is this?", MagicMock(), MagicMock()
+        )
 
 
 def test_generate_qa_response_rejects_more_than_8_images() -> None:
     images = [Image.new("RGB", (100, 100)) for _ in range(9)]
-    with pytest.raises(ValueError, match="1 to 8"):
+    with pytest.raises(ValueError, match="2 to 8"):
         generate_qa_response(images, "What is this?", MagicMock(), MagicMock())
 
 
@@ -97,7 +104,6 @@ def test_generate_qa_response_returns_empty_on_no_new_tokens(
     mock_gen: MagicMock,
 ) -> None:
     mock_gen.return_value = ""
-    result = generate_qa_response(
-        [Image.new("RGB", (10, 10))], "question", MagicMock(), MagicMock()
-    )
+    images = [Image.new("RGB", (10, 10)) for _ in range(2)]
+    result = generate_qa_response(images, "question", MagicMock(), MagicMock())
     assert result == ""

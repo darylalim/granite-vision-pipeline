@@ -25,15 +25,15 @@ EXAMPLE_PDF = "examples/sample.pdf"
 st.title("Multipage QA")
 st.write(
     "Ask questions about document pages using IBM Granite Vision. "
-    "Upload a PDF, then type your question."
+    "Upload a PDF, select 2-8 consecutive pages, then type your question."
 )
 
 show_help(
     supported_formats="PDF",
     description=(
-        "Upload a PDF and select which pages to include (up to 8). "
+        "Upload a PDF and select 2-8 consecutive pages. "
         "Type a question and the model will analyze all selected pages "
-        "together to generate an answer. Images are resized to "
+        "together to generate an answer. Page images are resized to "
         "768px max dimension to fit within memory limits."
     ),
     model_info="[granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)",
@@ -67,13 +67,24 @@ if uploaded_file:
         total_pages = get_pdf_page_count(path)
     uploaded_file.seek(0)
 
-    default_pages = list(range(1, min(9, total_pages + 1)))
-    selected = st.multiselect(
-        "Select pages (up to 8)",
-        options=list(range(1, total_pages + 1)),
-        default=default_pages,
-        max_selections=8,
-    )
+    if total_pages < 2:
+        st.error("PDF must have at least 2 pages.")
+    else:
+        max_count = min(8, total_pages)
+        col_start, col_count = st.columns(2)
+        with col_start:
+            start_page = st.number_input(
+                "Start page", min_value=1, max_value=total_pages - 1, value=1
+            )
+        with col_count:
+            max_from_start = min(max_count, total_pages - start_page + 1)
+            num_pages = st.number_input(
+                "Number of pages",
+                min_value=2,
+                max_value=max_from_start,
+                value=max_from_start,
+            )
+        selected = list(range(start_page, start_page + num_pages))
 
 question = st.text_input("Question", placeholder="e.g., What is shown on these pages?")
 
