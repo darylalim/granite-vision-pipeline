@@ -138,7 +138,7 @@ if st.button("Answer", type="primary", disabled=not has_input):
                 st.image(
                     img,
                     caption=f"Page {selected[i]}",
-                    use_container_width=True,
+                    width="stretch",
                 )
         with col_answer:
             st.markdown(answer)
