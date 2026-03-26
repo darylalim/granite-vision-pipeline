@@ -108,17 +108,7 @@ if st.button("Answer", type="primary", disabled=not has_input):
     if not answer:
         st.warning("Model produced no output.")
     else:
-        col_thumbs, col_answer = st.columns([1, 2])
-        with col_thumbs:
-            for i, img in enumerate(page_images):
-                st.image(
-                    img,
-                    caption=f"Page {selected[i]}",
-                    width="stretch",
-                )
-        with col_answer:
-            st.markdown(answer)
-
+        st.markdown(answer)
         show_metrics_bar({"Duration (s)": f"{t.duration_s:.2f}"})
 
     st.caption("Answers are limited to ~1024 tokens and may be truncated.")
