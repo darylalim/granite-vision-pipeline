@@ -14,7 +14,7 @@ def _load_vision_model(
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     processor = AutoProcessor.from_pretrained(repo_id)
-    model = AutoModelForImageTextToText.from_pretrained(repo_id).to(device)
+    model = AutoModelForImageTextToText.from_pretrained(repo_id).to(device)  # type: ignore[arg-type]
     return processor, model
 
 
@@ -37,7 +37,7 @@ def generate_response(
     input tokens from output, decode. Returns decoded string, or empty
     string if the model produces no new tokens.
     """
-    device = next(model.parameters()).device
+    device = next(model.parameters()).device  # type: ignore[attr-defined]
 
     inputs = processor.apply_chat_template(  # type: ignore[operator]
         conversation,
@@ -48,7 +48,7 @@ def generate_response(
     ).to(device)
 
     with torch.inference_mode():
-        output = model.generate(**inputs, max_new_tokens=max_new_tokens)
+        output = model.generate(**inputs, max_new_tokens=max_new_tokens)  # type: ignore[attr-defined]
 
     trimmed = output[:, inputs["input_ids"].shape[1] :]
     decoded = processor.decode(trimmed[0], skip_special_tokens=True)  # type: ignore[operator]
