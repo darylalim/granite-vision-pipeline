@@ -1,26 +1,26 @@
 """Shared model loading and generation helpers."""
 
 import torch
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 
 def _load_vision_model(
     repo_id: str, device: str | None = None
-) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
-    """Load an AutoProcessor and AutoModelForVision2Seq from a HuggingFace repo.
+) -> tuple[AutoProcessor, AutoModelForImageTextToText]:
+    """Load an AutoProcessor and AutoModelForImageTextToText from a HuggingFace repo.
 
     When device is None, auto-detects: CUDA if available, else CPU.
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     processor = AutoProcessor.from_pretrained(repo_id)
-    model = AutoModelForVision2Seq.from_pretrained(repo_id).to(device)
+    model = AutoModelForImageTextToText.from_pretrained(repo_id).to(device)
     return processor, model
 
 
 def create_granite_vision_model(
     device: str | None = None,
-) -> tuple[AutoProcessor, AutoModelForVision2Seq]:
+) -> tuple[AutoProcessor, AutoModelForImageTextToText]:
     """Load Granite Vision 3.3 2B."""
     return _load_vision_model("ibm-granite/granite-vision-3.3-2b", device)
 
@@ -28,7 +28,7 @@ def create_granite_vision_model(
 def generate_response(
     conversation: list[dict],
     processor: AutoProcessor,
-    model: AutoModelForVision2Seq,
+    model: AutoModelForImageTextToText,
     max_new_tokens: int = 1024,
 ) -> str:
     """Generate a response from a conversation using apply_chat_template.

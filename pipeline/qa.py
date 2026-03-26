@@ -1,7 +1,7 @@
 """Multipage QA using Granite Vision."""
 
 from PIL import Image
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoModelForImageTextToText, AutoProcessor
 
 from pipeline.models import generate_response
 
@@ -26,7 +26,7 @@ def generate_qa_response(
     images: list[Image.Image],
     question: str,
     processor: AutoProcessor,
-    model: AutoModelForVision2Seq,
+    model: AutoModelForImageTextToText,
 ) -> str:
     """Answer a question about one or more page images.
 

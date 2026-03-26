@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 
-@patch("pipeline.models.AutoModelForVision2Seq")
+@patch("pipeline.models.AutoModelForImageTextToText")
 @patch("pipeline.models.AutoProcessor")
 def test_load_vision_model_loads_and_moves_to_device(
     mock_processor_cls: MagicMock,
@@ -22,7 +22,7 @@ def test_load_vision_model_loads_and_moves_to_device(
     assert model is mock_model_cls.from_pretrained.return_value.to.return_value
 
 
-@patch("pipeline.models.AutoModelForVision2Seq")
+@patch("pipeline.models.AutoModelForImageTextToText")
 @patch("pipeline.models.AutoProcessor")
 def test_create_granite_vision_model_uses_correct_repo(
     mock_processor_cls: MagicMock,
