@@ -1,6 +1,6 @@
 # Granite Vision Pipeline
 
-Streamlit web app for multipage document question answering. Upload a PDF or up to 8 images, ask a question, and get an answer across all pages.
+Streamlit web app for multipage document question answering. Upload a PDF, select 2-8 consecutive pages, ask a question, and get a text answer.
 
 Powered by [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b). Includes a "Try with example" button for a quick demo.
 
@@ -13,7 +13,7 @@ uv run streamlit run streamlit_app.py
 
 ## How It Works
 
-Upload a single PDF or up to 8 images and ask a question about the content. For PDFs, select which pages to include (up to 8). Images are resized to 768px max dimension for GPU memory efficiency. Answers are displayed alongside page thumbnails.
+Upload a PDF and select 2-8 consecutive pages using the start page and page count controls. Type a question and the model will analyze all selected pages together to generate a text answer. Page images are resized to 768px max dimension for GPU memory efficiency.
 
 ## Project Structure
 
@@ -25,7 +25,7 @@ pipeline/
   models.py              # model loading, vision model factory, generate helper
   utils.py               # temp_upload and timed context managers
   pdf.py                 # PDF rendering and page count utilities
-  qa.py                  # image resizing, multipage QA inference
+  qa.py                  # image resizing, multipage QA inference (2-8 pages)
 examples/
   sample.pdf             # sample PDF for demo mode
 tests/
