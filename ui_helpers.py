@@ -8,42 +8,19 @@ import io
 from pathlib import Path
 
 import streamlit as st
-from PIL import Image
 
 
-def show_upload_preview(
-    uploaded_files: object | list[object],
-    thumbnail_size: int = 200,
-) -> None:
-    """Show thumbnail preview of uploaded file(s).
-
-    For images, displays the image thumbnail. For PDFs, shows filename
-    and file size. Accepts a single file or a list of files.
-    """
-    if not isinstance(uploaded_files, list):
-        uploaded_files = [uploaded_files]
-
-    files = [f for f in uploaded_files if f is not None]
-    if not files:
+def show_upload_preview(uploaded_file: object) -> None:
+    """Show preview of an uploaded PDF file (filename and size)."""
+    if uploaded_file is None:
         return
 
-    cols = st.columns(min(len(files), 8))
-    for i, f in enumerate(files[:8]):
-        name = getattr(f, "name", "file")
-        with cols[i]:
-            if name.lower().endswith(".pdf"):
-                size = getattr(f, "size", None)
-                if size is not None:
-                    st.caption(f"**{name}**\n{size / 1024:.0f} KB")
-                else:
-                    st.caption(f"**{name}**")
-            else:
-                try:
-                    img = Image.open(f)
-                    st.image(img, caption=name, width=thumbnail_size)
-                    f.seek(0)
-                except (OSError, ValueError):
-                    st.caption(f"**{name}**")
+    name = getattr(uploaded_file, "name", "file")
+    size = getattr(uploaded_file, "size", None)
+    if size is not None:
+        st.caption(f"**{name}**\n{size / 1024:.0f} KB")
+    else:
+        st.caption(f"**{name}**")
 
 
 def show_help(

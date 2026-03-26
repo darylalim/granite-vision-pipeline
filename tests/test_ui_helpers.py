@@ -4,8 +4,6 @@ import io
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from PIL import Image
-
 from ui_helpers import (
     _ExampleFile,
     load_example,
@@ -147,28 +145,9 @@ def test_show_sidebar_status_shows_models(mock_st: MagicMock) -> None:
 
 
 @patch("ui_helpers.st")
-@patch("ui_helpers.Image")
-def test_show_upload_preview_single_image(
-    mock_image: MagicMock, mock_st: MagicMock
-) -> None:
-    mock_st.columns.return_value = [MagicMock()]
-    mock_image.open.return_value = MagicMock()
-
-    buf = io.BytesIO(b"fake image data")
-    buf.name = "photo.png"  # type: ignore[attr-defined]
-
-    show_upload_preview(buf)
-
-    mock_st.columns.assert_called_once_with(1)
-    mock_st.image.assert_called_once()
-
-
-@patch("ui_helpers.st")
-def test_show_upload_preview_pdf(mock_st: MagicMock) -> None:
-    mock_st.columns.return_value = [MagicMock()]
-
+def test_show_upload_preview_pdf_with_size(mock_st: MagicMock) -> None:
     buf = io.BytesIO(b"fake pdf")
-    buf.name = "doc.pdf"  # type: ignore[attr-defined]
+    buf.name = "doc.pdf"
     buf.size = 2048  # type: ignore[attr-defined]
 
     show_upload_preview(buf)
@@ -180,36 +159,22 @@ def test_show_upload_preview_pdf(mock_st: MagicMock) -> None:
 
 
 @patch("ui_helpers.st")
-def test_show_upload_preview_multiple_files(mock_st: MagicMock) -> None:
-    mock_cols = [MagicMock(), MagicMock()]
-    mock_st.columns.return_value = mock_cols
+def test_show_upload_preview_pdf_without_size(mock_st: MagicMock) -> None:
+    buf = io.BytesIO(b"fake pdf")
+    buf.name = "report.pdf"
 
-    files = []
-    for name in ["a.png", "b.png"]:
-        img = Image.new("RGB", (5, 5))
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-        buf.name = name  # type: ignore[attr-defined]
-        files.append(buf)
+    show_upload_preview(buf)
 
-    show_upload_preview(files)
-
-    mock_st.columns.assert_called_once_with(2)
+    mock_st.caption.assert_called_once()
+    caption_arg = mock_st.caption.call_args[0][0]
+    assert "report.pdf" in caption_arg
 
 
 @patch("ui_helpers.st")
-def test_show_upload_preview_none_filtered(mock_st: MagicMock) -> None:
-    show_upload_preview([None, None])
+def test_show_upload_preview_none(mock_st: MagicMock) -> None:
+    show_upload_preview(None)
 
-    mock_st.columns.assert_not_called()
-
-
-@patch("ui_helpers.st")
-def test_show_upload_preview_empty_list(mock_st: MagicMock) -> None:
-    show_upload_preview([])
-
-    mock_st.columns.assert_not_called()
+    mock_st.caption.assert_not_called()
 
 
 # --- show_help tests ---
@@ -218,15 +183,15 @@ def test_show_upload_preview_empty_list(mock_st: MagicMock) -> None:
 @patch("ui_helpers.st")
 def test_show_help_renders_all_sections(mock_st: MagicMock) -> None:
     show_help(
-        supported_formats="PDF, PNG",
-        description="Upload a file to process.",
+        supported_formats="PDF",
+        description="Upload a PDF to process.",
         model_info="granite-vision-3.3-2b",
     )
 
     mock_st.expander.assert_called_once_with("How this works")
     markdown_calls = [c[0][0] for c in mock_st.markdown.call_args_list]
-    assert any("PDF, PNG" in c for c in markdown_calls)
-    assert any("Upload a file" in c for c in markdown_calls)
+    assert any("PDF" in c for c in markdown_calls)
+    assert any("Upload a PDF" in c for c in markdown_calls)
     assert any("granite-vision" in c for c in markdown_calls)
 
 
