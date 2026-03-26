@@ -198,7 +198,7 @@ def test_show_help_renders_all_sections(mock_st: MagicMock) -> None:
 @patch("ui_helpers.st")
 def test_show_help_calls_markdown_three_times(mock_st: MagicMock) -> None:
     show_help(
-        supported_formats="JPG",
+        supported_formats="PDF",
         description="Desc.",
         model_info="Model.",
     )
