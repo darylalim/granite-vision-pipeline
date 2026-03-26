@@ -1,10 +1,9 @@
 [project]
 name = "granite-vision-pipeline"
-version = "0.6.0"
-description = "Extract and describe pictures and tables in PDFs, and answer questions across multiple document pages"
+version = "0.7.0"
+description = "Answer questions across multiple document pages using Granite Vision"
 requires-python = ">=3.12"
 dependencies = [
-    "docling[vlm]",
     "pypdfium2",
     "streamlit",
     "torch",
@@ -18,16 +17,9 @@ dev = [
     "ty",
 ]
 
-[tool.uv]
-override-dependencies = ["opencv-python-headless>=4.6"]
-constraint-dependencies = ["opencv-python<0"]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.ruff.lint.per-file-ignores]
-"pipeline/config.py" = ["E402"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pipeline"]
