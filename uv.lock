@@ -251,7 +251,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pypdfium2" },
-    { name = "streamlit" },
+    { name = "streamlit", specifier = ">=1.39.0" },
     { name = "torch" },
     { name = "transformers" },
 ]
