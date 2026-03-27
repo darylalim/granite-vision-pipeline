@@ -43,9 +43,14 @@ with col_example:
 # Resolve files: user upload takes priority over example
 if uploaded_file:
     st.session_state.pop("use_example_qa", None)
-    # Reset history for new upload
-    st.session_state["qa_history"] = []
-    st.session_state["source_pages"] = []
+    # Reset history only when a new file is uploaded
+    current_file_id = (
+        f"{getattr(uploaded_file, 'name', '')}_{getattr(uploaded_file, 'size', 0)}"
+    )
+    if st.session_state.get("current_file_id") != current_file_id:
+        st.session_state["qa_history"] = []
+        st.session_state["source_pages"] = []
+        st.session_state["current_file_id"] = current_file_id
 elif st.session_state.get("use_example_qa"):
     uploaded_file = load_example(EXAMPLE_PDF)
     st.caption("Using example file")
@@ -103,6 +108,7 @@ if uploaded_file:
                 options=list(range(1, total_pages + 1)),
                 key=slider_key,
             )
+            assert isinstance(slider_range, tuple)
 
         # Clamp to max 8 pages
         clamped = clamp_page_range(slider_range[0], slider_range[1], max_span=8)
