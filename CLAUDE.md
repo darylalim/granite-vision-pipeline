@@ -30,7 +30,7 @@ uv run pytest tests/test_file.py::test_name  # run single test
 
 Runtime (`[project.dependencies]`):
 - `pypdfium2` -- PDF page rendering and page counting
-- `streamlit` -- web UI framework
+- `streamlit` (>=1.55.0) -- web UI framework
 - `torch` -- tensor operations and model inference
 - `torchvision` -- fast image preprocessing for vision models
 - `transformers` -- model loading (Granite Vision)
@@ -60,9 +60,10 @@ Dev (`[dependency-groups] dev`):
 
 - Only PDF uploads are supported; the file uploader accepts a single PDF
 - QA requires 2-8 consecutive pages; PDFs with fewer than 2 pages are rejected
-- Page selection uses a range slider with thumbnail grid; all pages rendered at 72 DPI as thumbnails (batched for PDFs over 50 pages), cached in `st.session_state`
+- Page selection uses a range slider (explicit `value` tuple for reliable range mode) with thumbnail grid; all pages rendered at 72 DPI as thumbnails (batched for PDFs over 50 pages), cached in `st.session_state`
 - Page images are resized so the longer dimension is 768px to stay within GPU memory limits
 - PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered at full DPI via `render_pdf_pages(page_indices=...)`
+- Answer button is always clickable; validates on click (shows warnings for missing PDF/pages/question) instead of being disabled
 - Answer displayed in tabbed view: Answer tab (with conversation history) and Source Pages tab (pre-resize page images)
 - Conversation history stored in `st.session_state`; resets on new upload or page selection change
 - Q&A sessions can be exported as markdown via download button

@@ -2,7 +2,7 @@
 
 Streamlit web app for multipage document question answering. Upload a PDF, select 2-8 consecutive pages, ask a question, and get a text answer.
 
-Powered by [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b). Includes a "Try with example" button for a quick demo.
+Powered by [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b). Requires Python 3.12+ and Streamlit 1.55.0+. Includes a "Try with example" button for a quick demo.
 
 ## Setup
 
