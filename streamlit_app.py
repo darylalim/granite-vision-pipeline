@@ -108,7 +108,8 @@ if uploaded_file:
                 options=list(range(1, total_pages + 1)),
                 key=slider_key,
             )
-            assert isinstance(slider_range, tuple)
+            if not isinstance(slider_range, tuple):
+                slider_range = (slider_range, slider_range)
 
         # Clamp to max 8 pages
         clamped = clamp_page_range(slider_range[0], slider_range[1], max_span=8)
