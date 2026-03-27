@@ -4,10 +4,13 @@ import io
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from PIL import Image
+
 from ui_helpers import (
     _ExampleFile,
     clamp_page_range,
     load_example,
+    render_thumbnail_grid,
     show_upload_preview,
 )
 
@@ -154,3 +157,72 @@ def test_clamp_page_range_exceeds_from_middle() -> None:
 
 def test_clamp_page_range_custom_max_span() -> None:
     assert clamp_page_range(1, 10, max_span=4) == (1, 4)
+
+
+# --- render_thumbnail_grid tests ---
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_creates_correct_columns(mock_st: MagicMock) -> None:
+    mock_cols = [MagicMock() for _ in range(4)]
+    mock_st.columns.return_value = mock_cols
+
+    images = [Image.new("RGB", (100, 100)) for _ in range(4)]
+    render_thumbnail_grid(images, selected_range=(1, 2), cols_per_row=4)
+
+    mock_st.columns.assert_called_once_with(4)
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_displays_all_images(mock_st: MagicMock) -> None:
+    mock_cols = [MagicMock() for _ in range(3)]
+    mock_st.columns.return_value = mock_cols
+
+    images = [Image.new("RGB", (100, 100)) for _ in range(3)]
+    render_thumbnail_grid(images, selected_range=(1, 3), cols_per_row=3)
+
+    for i, col in enumerate(mock_cols):
+        container = col.container.return_value
+        container.image.assert_called_once_with(images[i], use_container_width=True)
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_captions_show_page_numbers(mock_st: MagicMock) -> None:
+    mock_cols = [MagicMock() for _ in range(2)]
+    mock_st.columns.return_value = mock_cols
+
+    images = [Image.new("RGB", (100, 100)) for _ in range(2)]
+    render_thumbnail_grid(images, selected_range=(1, 2), cols_per_row=2)
+
+    c0 = mock_cols[0].container.return_value
+    c1 = mock_cols[1].container.return_value
+    c0.caption.assert_called_once_with("Page 1")
+    c1.caption.assert_called_once_with("Page 2")
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_highlights_selected(mock_st: MagicMock) -> None:
+    mock_cols = [MagicMock() for _ in range(4)]
+    mock_st.columns.return_value = mock_cols
+
+    images = [Image.new("RGB", (100, 100)) for _ in range(4)]
+    render_thumbnail_grid(images, selected_range=(2, 3), cols_per_row=4)
+
+    # Pages 2-3 (index 1-2) should use container(border=True)
+    mock_cols[1].container.assert_called_once_with(border=True)
+    mock_cols[2].container.assert_called_once_with(border=True)
+    # Pages 1 and 4 (index 0, 3) should use container(border=False)
+    mock_cols[0].container.assert_called_once_with(border=False)
+    mock_cols[3].container.assert_called_once_with(border=False)
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_multiple_rows(mock_st: MagicMock) -> None:
+    mock_row1 = [MagicMock() for _ in range(3)]
+    mock_row2 = [MagicMock() for _ in range(3)]
+    mock_st.columns.side_effect = [mock_row1, mock_row2]
+
+    images = [Image.new("RGB", (100, 100)) for _ in range(5)]
+    render_thumbnail_grid(images, selected_range=(1, 5), cols_per_row=3)
+
+    assert mock_st.columns.call_count == 2

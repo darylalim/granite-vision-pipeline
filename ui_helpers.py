@@ -38,6 +38,33 @@ def load_example(file_path: str) -> _ExampleFile:
     return _ExampleFile(data, name=Path(file_path).name, size=len(data))
 
 
+def render_thumbnail_grid(
+    images: list,
+    selected_range: tuple[int, int],
+    cols_per_row: int = 4,
+) -> None:
+    """Render page thumbnails in a grid with selected pages highlighted.
+
+    All pages are rendered inside a container. Selected pages use
+    border=True for visual highlighting; unselected use border=False.
+
+    Args:
+        images: List of PIL Images, one per page.
+        selected_range: 1-based inclusive (start, end) of selected pages.
+        cols_per_row: Number of columns per row.
+    """
+    sel_start, sel_end = selected_range
+    for row_start in range(0, len(images), cols_per_row):
+        row_images = images[row_start : row_start + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for i, (col, img) in enumerate(zip(cols, row_images)):
+            page_num = row_start + i + 1  # 1-based
+            is_selected = sel_start <= page_num <= sel_end
+            container = col.container(border=is_selected)
+            container.image(img, use_container_width=True)
+            container.caption(f"Page {page_num}")
+
+
 def clamp_page_range(start: int, end: int, max_span: int = 8) -> tuple[int, int]:
     """Clamp a page range so it spans at most max_span pages.
 
