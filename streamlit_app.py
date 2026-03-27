@@ -9,10 +9,10 @@ from pipeline import (
     timed,
 )
 from ui_helpers import (
-    clamp_page_range,  # noqa: F401
+    clamp_page_range,
     format_qa_export,  # noqa: F401
     load_example,
-    render_thumbnail_grid,  # noqa: F401
+    render_thumbnail_grid,
     show_upload_preview,
 )
 
@@ -61,21 +61,70 @@ if uploaded_file:
     if total_pages < 2:
         st.error("PDF must have at least 2 pages.")
     else:
-        max_count = min(8, total_pages)
-        col_start, col_count = st.columns(2)
-        with col_start:
-            start_page = st.number_input(
-                "Start page", min_value=1, max_value=total_pages - 1, value=1
+        # Render thumbnails at low DPI, cache in session state
+        file_size = getattr(uploaded_file, "size", 0)
+        file_key = (
+            f"thumbs_{getattr(uploaded_file, 'name', '')}_{total_pages}_{file_size}"
+        )
+        if file_key not in st.session_state:
+            with temp_upload(uploaded_file) as thumb_path:
+                # Batch render for large PDFs to avoid blocking
+                if total_pages > 50:
+                    all_thumbs: list = []
+                    for batch_start in range(0, total_pages, 20):
+                        batch_end = min(batch_start + 20, total_pages)
+                        batch_indices = list(range(batch_start, batch_end))
+                        all_thumbs.extend(
+                            render_pdf_pages(
+                                thumb_path, dpi=72, page_indices=batch_indices
+                            )
+                        )
+                    st.session_state[file_key] = all_thumbs
+                else:
+                    st.session_state[file_key] = render_pdf_pages(thumb_path, dpi=72)
+            uploaded_file.seek(0)
+        thumbnails = st.session_state[file_key]
+
+        # Dynamic columns: 4 for small PDFs, 6 for larger ones
+        cols_per_row = 6 if total_pages > 12 else 4
+
+        # Range slider for consecutive page selection
+        slider_key = "page_range_slider"
+        if total_pages == 2:
+            slider_range = (1, 2)
+        else:
+            if slider_key not in st.session_state:
+                st.session_state[slider_key] = (1, min(total_pages, 8))
+            slider_range = st.select_slider(
+                "Select page range",
+                options=list(range(1, total_pages + 1)),
+                key=slider_key,
             )
-        with col_count:
-            max_from_start = min(max_count, total_pages - start_page + 1)
-            num_pages = st.number_input(
-                "Number of pages",
-                min_value=2,
-                max_value=max_from_start,
-                value=max_from_start,
+
+        # Clamp to max 8 pages
+        clamped = clamp_page_range(slider_range[0], slider_range[1], max_span=8)
+        if clamped != tuple(slider_range):
+            st.warning(
+                f"Maximum 8 pages — selection narrowed to pages {clamped[0]}-{clamped[1]}"
             )
-        selected = list(range(start_page, start_page + num_pages))
+            st.session_state[slider_key] = clamped
+            st.rerun()
+
+        # Display thumbnail grid
+        render_thumbnail_grid(
+            thumbnails, selected_range=clamped, cols_per_row=cols_per_row
+        )
+        num_selected = clamped[1] - clamped[0] + 1
+        st.caption(f"Pages {clamped[0]}-{clamped[1]} selected ({num_selected} pages)")
+
+        selected = list(range(clamped[0], clamped[1] + 1))
+
+        # Reset conversation history if selection changed
+        prev_sel = st.session_state.get("prev_selected")
+        if prev_sel != selected:
+            st.session_state["qa_history"] = []
+            st.session_state["source_pages"] = []
+            st.session_state["prev_selected"] = selected
 
 question = st.text_input("Question", placeholder="e.g., What is shown on these pages?")
 
