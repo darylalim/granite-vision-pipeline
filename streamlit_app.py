@@ -10,7 +10,7 @@ from pipeline import (
 )
 from ui_helpers import (
     clamp_page_range,
-    format_qa_export,  # noqa: F401
+    format_qa_export,
     load_example,
     render_thumbnail_grid,
     show_upload_preview,
@@ -43,6 +43,9 @@ with col_example:
 # Resolve files: user upload takes priority over example
 if uploaded_file:
     st.session_state.pop("use_example_qa", None)
+    # Reset history for new upload
+    st.session_state["qa_history"] = []
+    st.session_state["source_pages"] = []
 elif st.session_state.get("use_example_qa"):
     uploaded_file = load_example(EXAMPLE_PDF)
     st.caption("Using example file")
@@ -126,29 +129,90 @@ if uploaded_file:
             st.session_state["source_pages"] = []
             st.session_state["prev_selected"] = selected
 
-question = st.text_input("Question", placeholder="e.g., What is shown on these pages?")
+question = st.text_area(
+    "Question",
+    placeholder="e.g., What is shown on these pages?",
+    height=100,
+)
+st.caption("Ctrl+Enter to submit")
 
-has_input = bool(uploaded_file) and bool(selected) and bool(question)
+has_input = bool(uploaded_file) and len(selected) >= 2 and bool(question)
 
 if st.button("Answer", type="primary", disabled=not has_input):
     assert uploaded_file is not None
-    processor, model = qa_model()
-    st.session_state["model_granite_vision"] = True
 
-    with temp_upload(uploaded_file) as tmp_path:
-        with st.spinner("Rendering selected pages..."):
+    if not st.session_state.get("model_granite_vision"):
+        spinner_msg = "Loading model and generating answer..."
+    else:
+        spinner_msg = "Generating answer..."
+
+    with st.spinner(spinner_msg):
+        processor, model = qa_model()
+        st.session_state["model_granite_vision"] = True
+
+        with temp_upload(uploaded_file) as tmp_path:
             page_images = render_pdf_pages(
                 tmp_path, page_indices=[i - 1 for i in selected]
             )
 
-        with st.spinner("Generating answer..."):
-            with timed() as t:
-                answer = generate_qa_response(page_images, question, processor, model)
+        # Store source pages (pre-resize) for verification tab
+        st.session_state["source_pages"] = page_images
+
+        with timed() as t:
+            answer = generate_qa_response(page_images, question, processor, model)
 
     if not answer:
         st.warning("Model produced no output.")
     else:
-        st.markdown(answer)
-        st.caption(f"Generated in {t.duration_s:.2f}s")
+        # Append to conversation history
+        history = st.session_state.get("qa_history", [])
+        history.append({"question": question, "answer": answer})
+        st.session_state["qa_history"] = history
+        st.session_state["last_duration"] = t.duration_s
 
-    st.caption("Answers are limited to ~1024 tokens and may be truncated.")
+# Display results if there is history
+history = st.session_state.get("qa_history", [])
+source_pages = st.session_state.get("source_pages", [])
+
+if history:
+    tab_answer, tab_source = st.tabs(["Answer", "Source Pages"])
+
+    with tab_answer:
+        for entry in history:
+            st.markdown(f"**Q:** {entry['question']}")
+            with st.container(border=True):
+                st.markdown(entry["answer"])
+            st.divider()
+
+        duration = st.session_state.get("last_duration")
+        if duration is not None:
+            st.caption(f"Generated in {duration:.2f}s")
+
+        # Download button
+        if uploaded_file and selected:
+            file_name = getattr(uploaded_file, "name", "document.pdf")
+            page_range = (selected[0], selected[-1])
+            export_md = format_qa_export(file_name, page_range, history)
+            st.download_button(
+                "Download Q&A",
+                data=export_md,
+                file_name="qa_export.md",
+                mime="text/markdown",
+            )
+
+    with tab_source:
+        if source_pages:
+            src_cols_per_row = min(4, len(source_pages))
+            for row_start in range(0, len(source_pages), src_cols_per_row):
+                row_pages = list(
+                    enumerate(
+                        source_pages[row_start : row_start + src_cols_per_row],
+                        start=row_start,
+                    )
+                )
+                cols = st.columns(src_cols_per_row)
+                for col, (idx, img) in zip(cols, row_pages):
+                    page_num = selected[idx] if idx < len(selected) else idx + 1
+                    col.image(img, caption=f"Page {page_num}", use_container_width=True)
+        else:
+            st.info("Source pages will appear here after generating an answer.")
