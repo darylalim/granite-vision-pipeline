@@ -97,15 +97,15 @@ if uploaded_file:
         cols_per_row = 6 if total_pages > 12 else 4
 
         # Range slider for consecutive page selection
+        # Explicit value tuple ensures range mode; key preserves user selection across reruns
         slider_key = "page_range_slider"
         if total_pages == 2:
             slider_range = (1, 2)
         else:
-            if slider_key not in st.session_state:
-                st.session_state[slider_key] = (1, min(total_pages, 8))
             slider_range = st.select_slider(
                 "Select page range",
                 options=list(range(1, total_pages + 1)),
+                value=(1, min(total_pages, 8)),
                 key=slider_key,
             )
             if not isinstance(slider_range, tuple):
