@@ -5,7 +5,7 @@ description = "Answer questions across 2-8 consecutive PDF pages using Granite V
 requires-python = ">=3.12"
 dependencies = [
     "pypdfium2",
-    "streamlit>=1.39.0",
+    "streamlit>=1.55.0",
     "torch",
     "torchvision>=0.25.0",
     "transformers",
