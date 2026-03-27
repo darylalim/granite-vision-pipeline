@@ -5,6 +5,7 @@ at the call site and passed as a parameter.
 """
 
 import io
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -63,6 +64,40 @@ def render_thumbnail_grid(
             container = col.container(border=is_selected)
             container.image(img, use_container_width=True)
             container.caption(f"Page {page_num}")
+
+
+def format_qa_export(
+    file_name: str,
+    page_range: tuple[int, int],
+    qa_pairs: list[dict[str, str]],
+) -> str:
+    """Format Q&A session as a markdown string for download.
+
+    Args:
+        file_name: Name of the source PDF file.
+        page_range: 1-based inclusive (start, end) page range.
+        qa_pairs: List of dicts with "question" and "answer" keys.
+
+    Returns:
+        Markdown string with header, timestamp, and Q&A pairs.
+    """
+    start, end = page_range
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    lines = [
+        f"# QA Export — {file_name} (pages {start}-{end})",
+        f"Generated: {timestamp}",
+        "",
+        "## Q&A",
+    ]
+
+    for pair in qa_pairs:
+        lines.append("")
+        lines.append(f"**Q:** {pair['question']}")
+        lines.append(f"**A:** {pair['answer']}")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def clamp_page_range(start: int, end: int, max_span: int = 8) -> tuple[int, int]:
