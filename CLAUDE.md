@@ -52,20 +52,22 @@ Dev (`[dependency-groups] dev`):
 
 ### UI
 
-- `streamlit_app.py` -- single-page app; PDF upload, page selection (start page + count), question input, text answer display
-- `ui_helpers.py` -- shared UI functions: `show_upload_preview()` for PDF file info, `show_help()` for "How this works" expander, `show_metrics_bar()` for result metrics, `load_example()` for demo mode files, `show_sidebar_status()` for model status; no pipeline imports
+- `streamlit_app.py` -- single-page app; PDF upload, thumbnail grid page selection with range slider (2-8 consecutive pages), text area question input, tabbed answer/source display with conversation history, Q&A export download
+- `ui_helpers.py` -- shared UI functions: `show_upload_preview()` for PDF file info, `clamp_page_range()` for page range validation, `render_thumbnail_grid()` for page thumbnail display, `format_qa_export()` for markdown Q&A export, `load_example()` for demo mode files; no pipeline imports
 - `examples/` -- sample files for demo mode
 
 ### Key Details
 
 - Only PDF uploads are supported; the file uploader accepts a single PDF
 - QA requires 2-8 consecutive pages; PDFs with fewer than 2 pages are rejected
-- Page selection uses start page + number of pages to enforce consecutiveness
+- Page selection uses a range slider with thumbnail grid; all pages rendered at 72 DPI as thumbnails (batched for PDFs over 50 pages), cached in `st.session_state`
 - Page images are resized so the longer dimension is 768px to stay within GPU memory limits
-- PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered via `render_pdf_pages(page_indices=...)`
-- Answer is displayed as text only (no page thumbnails)
-- Model cached via `st.cache_resource`; model load status tracked via `st.session_state` flags shown in sidebar
-- "Try with example" button uses `st.session_state` flags and `load_example()` from `ui_helpers.py`; user uploads clear the example flag
+- PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered at full DPI via `render_pdf_pages(page_indices=...)`
+- Answer displayed in tabbed view: Answer tab (with conversation history) and Source Pages tab (pre-resize page images)
+- Conversation history stored in `st.session_state`; resets on new upload or page selection change
+- Q&A sessions can be exported as markdown via download button
+- Model cached via `st.cache_resource`; model status shown inline via spinner messages
+- "Try with example" button uses `st.session_state` flags and `load_example()` from `ui_helpers.py`; user uploads clear the example flag and reset history
 
 ## Tests
 
@@ -73,6 +75,6 @@ Dev (`[dependency-groups] dev`):
 - `tests/test_utils.py` -- `temp_upload()` file creation, cleanup, and exception safety; `timed()` duration measurement
 - `tests/test_pdf.py` -- `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; no model weights required
 - `tests/test_qa.py` -- `resize_for_qa()` dimension and aspect ratio tests; `generate_qa_response()` prompt structure, validation (2-8 images), and delegation to `generate_response()`; no model weights required
-- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_upload_preview()` PDF preview rendering; `show_metrics_bar()` column creation and metric rendering with mocked Streamlit; `show_sidebar_status()` model status display with mocked Streamlit
+- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_upload_preview()` PDF preview rendering; `clamp_page_range()` range validation and clamping; `render_thumbnail_grid()` column creation, image display, page captions, and selection highlighting; `format_qa_export()` markdown structure, Q&A pairs, and timestamp format
 
 Pipeline tests import directly from `pipeline` -- no Streamlit mocking needed. UI helper tests mock `streamlit` via `unittest.mock.patch`.
