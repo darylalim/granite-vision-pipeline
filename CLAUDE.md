@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Streamlit web app for multipage document question answering using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b). Upload a PDF, select 2-8 consecutive pages, ask a question, and get a text answer. Page images are resized to 768px max dimension.
+Streamlit web app for multipage document question answering using [granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b). Upload a PDF, select 2-8 consecutive pages via a thumbnail grid and range slider, ask a question, and get a text answer. Supports conversation history, source page verification, and Q&A export.
 
 ## Setup
 

@@ -13,13 +13,15 @@ uv run streamlit run streamlit_app.py
 
 ## How It Works
 
-Upload a PDF and select 2-8 consecutive pages using the start page and page count controls. Type a question and the model will analyze all selected pages together to generate a text answer. Page images are resized to 768px max dimension for GPU memory efficiency.
+Upload a PDF and select 2-8 consecutive pages using the thumbnail grid and range slider. Type a question and the model will analyze all selected pages together to generate a text answer. Page images are resized to 768px max dimension for GPU memory efficiency.
+
+Results are displayed in a tabbed view: the Answer tab shows conversation history across multiple questions, and the Source Pages tab shows the exact pages the model processed. Q&A sessions can be exported as markdown.
 
 ## Project Structure
 
 ```
 streamlit_app.py         # single-page Streamlit app
-ui_helpers.py            # shared UI functions (preview, help, metrics, examples, sidebar)
+ui_helpers.py            # shared UI functions (preview, thumbnails, export, examples)
 pipeline/
   __init__.py            # public API re-exports
   models.py              # model loading, vision model factory, generate helper
@@ -33,5 +35,5 @@ tests/
   test_utils.py          # temp_upload and timed context manager tests
   test_pdf.py            # PDF rendering and page count tests
   test_qa.py             # QA resizing, prompt structure, and validation tests
-  test_ui_helpers.py     # UI helper functions and example file loading tests
+  test_ui_helpers.py     # UI helpers, thumbnails, export, and example file tests
 ```
