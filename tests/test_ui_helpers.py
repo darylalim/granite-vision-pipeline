@@ -160,6 +160,11 @@ def test_clamp_page_range_custom_max_span() -> None:
     assert clamp_page_range(1, 10, max_span=4) == (1, 4)
 
 
+def test_clamp_page_range_default_max_span() -> None:
+    assert clamp_page_range(1, 8) == (1, 8)
+    assert clamp_page_range(1, 9) == (1, 8)
+
+
 # --- render_thumbnail_grid tests ---
 
 
@@ -227,6 +232,15 @@ def test_render_thumbnail_grid_multiple_rows(mock_st: MagicMock) -> None:
     render_thumbnail_grid(images, selected_range=(1, 5), cols_per_row=3)
 
     assert mock_st.columns.call_count == 2
+    # Third column in second row should be empty (only 5 images, not 6)
+    mock_row2[2].container.assert_not_called()
+
+
+@patch("ui_helpers.st")
+def test_render_thumbnail_grid_empty_images(mock_st: MagicMock) -> None:
+    render_thumbnail_grid([], selected_range=(1, 1), cols_per_row=4)
+
+    mock_st.columns.assert_not_called()
 
 
 # --- format_qa_export tests ---
@@ -268,3 +282,21 @@ def test_format_qa_export_empty_pairs() -> None:
     result = format_qa_export("doc.pdf", (1, 2), [])
     assert "# QA Export" in result
     assert "## Q&A" in result
+
+
+def test_format_qa_export_single_page_range() -> None:
+    result = format_qa_export("doc.pdf", (3, 3), [{"question": "Q?", "answer": "A."}])
+    assert "pages 3-3" in result
+
+
+def test_format_qa_export_preserves_pair_order() -> None:
+    pairs = [
+        {"question": "First?", "answer": "A1."},
+        {"question": "Second?", "answer": "A2."},
+        {"question": "Third?", "answer": "A3."},
+    ]
+    result = format_qa_export("doc.pdf", (1, 2), pairs)
+    first_pos = result.index("First?")
+    second_pos = result.index("Second?")
+    third_pos = result.index("Third?")
+    assert first_pos < second_pos < third_pos
