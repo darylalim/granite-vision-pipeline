@@ -172,9 +172,14 @@ if st.button("Answer", type="primary", disabled=not has_input):
     else:
         # Append to conversation history
         history = st.session_state.get("qa_history", [])
-        history.append({"question": question, "answer": answer})
+        history.append(
+            {
+                "question": question,
+                "answer": answer,
+                "duration_s": t.duration_s,
+            }
+        )
         st.session_state["qa_history"] = history
-        st.session_state["last_duration"] = t.duration_s
 
 # Display results if there is history
 history = st.session_state.get("qa_history", [])
@@ -188,11 +193,10 @@ if history:
             st.markdown(f"**Q:** {entry['question']}")
             with st.container(border=True):
                 st.markdown(entry["answer"])
+            duration = entry.get("duration_s")
+            if duration is not None:
+                st.caption(f"Generated in {duration:.2f}s")
             st.divider()
-
-        duration = st.session_state.get("last_duration")
-        if duration is not None:
-            st.caption(f"Generated in {duration:.2f}s")
 
         # Download button
         if uploaded_file and selected:
