@@ -4,11 +4,17 @@ No pipeline imports — any data requiring pipeline calls is computed
 at the call site and passed as a parameter.
 """
 
+from __future__ import annotations
+
 import io
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import streamlit as st
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 
 def show_upload_preview(uploaded_file: object) -> None:
@@ -40,7 +46,7 @@ def load_example(file_path: str) -> _ExampleFile:
 
 
 def render_thumbnail_grid(
-    images: list,
+    images: list[Image.Image],
     selected_range: tuple[int, int],
     cols_per_row: int = 4,
 ) -> None:
