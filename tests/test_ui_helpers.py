@@ -255,13 +255,13 @@ def test_format_qa_export_contains_qa_pairs() -> None:
     assert "**A:** Z is W." in result
 
 
-def test_format_qa_export_contains_timestamp() -> None:
-    result = format_qa_export("doc.pdf", (1, 2), [{"question": "Q?", "answer": "A."}])
-    assert "Generated:" in result
-    # UTC ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ
-    import re
+@patch("ui_helpers.datetime")
+def test_format_qa_export_contains_timestamp(mock_dt: MagicMock) -> None:
+    mock_dt.now.return_value.strftime.return_value = "2026-03-26T14:30:00Z"
 
-    assert re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", result)
+    result = format_qa_export("doc.pdf", (1, 2), [{"question": "Q?", "answer": "A."}])
+
+    assert "Generated: 2026-03-26T14:30:00Z" in result
 
 
 def test_format_qa_export_empty_pairs() -> None:
