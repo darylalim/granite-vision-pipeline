@@ -147,10 +147,16 @@ question = st.text_area(
 )
 st.caption("Ctrl+Enter to submit")
 
-has_input = bool(uploaded_file) and len(selected) >= 2 and bool(question)
-
-if st.button("Answer", type="primary", disabled=not has_input):
-    assert uploaded_file is not None
+if st.button("Answer", type="primary"):
+    if not uploaded_file:
+        st.warning("Upload a PDF first.")
+        st.stop()
+    if len(selected) < 2:
+        st.warning("Select at least 2 pages.")
+        st.stop()
+    if not question:
+        st.warning("Enter a question first.")
+        st.stop()
 
     if not st.session_state.get("model_granite_vision"):
         spinner_msg = "Loading model and generating answer..."
