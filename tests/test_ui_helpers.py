@@ -2,14 +2,11 @@
 
 import io
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from ui_helpers import (
     _ExampleFile,
     load_example,
-    show_help,
-    show_metrics_bar,
-    show_sidebar_status,
     show_upload_preview,
 )
 
@@ -95,52 +92,6 @@ def test_load_example_with_real_example_file() -> None:
     assert result.size > 0
 
 
-# --- show_metrics_bar tests ---
-
-
-@patch("ui_helpers.st")
-def test_show_metrics_bar_creates_columns(mock_st: MagicMock) -> None:
-    mock_cols = [MagicMock(), MagicMock()]
-    mock_st.columns.return_value = mock_cols
-
-    show_metrics_bar({"A": 1, "B": 2})
-
-    mock_st.columns.assert_called_once_with(2)
-    mock_cols[0].metric.assert_called_once_with("A", 1)
-    mock_cols[1].metric.assert_called_once_with("B", 2)
-
-
-@patch("ui_helpers.st")
-def test_show_metrics_bar_empty_dict(mock_st: MagicMock) -> None:
-    show_metrics_bar({})
-
-    mock_st.columns.assert_not_called()
-
-
-@patch("ui_helpers.st")
-def test_show_metrics_bar_single_metric(mock_st: MagicMock) -> None:
-    mock_col = MagicMock()
-    mock_st.columns.return_value = [mock_col]
-
-    show_metrics_bar({"Duration (s)": "1.23"})
-
-    mock_st.columns.assert_called_once_with(1)
-    mock_col.metric.assert_called_once_with("Duration (s)", "1.23")
-
-
-# --- show_sidebar_status tests ---
-
-
-@patch("ui_helpers.st")
-def test_show_sidebar_status_shows_models(mock_st: MagicMock) -> None:
-    show_sidebar_status({"Granite Vision": True, "Docling": False})
-
-    mock_st.markdown.assert_any_call("**Models**")
-    text_calls = mock_st.text.call_args_list
-    assert call("Granite Vision: Loaded") in text_calls
-    assert call("Docling: Not loaded") in text_calls
-
-
 # --- show_upload_preview tests ---
 
 
@@ -175,32 +126,3 @@ def test_show_upload_preview_none(mock_st: MagicMock) -> None:
     show_upload_preview(None)
 
     mock_st.caption.assert_not_called()
-
-
-# --- show_help tests ---
-
-
-@patch("ui_helpers.st")
-def test_show_help_renders_all_sections(mock_st: MagicMock) -> None:
-    show_help(
-        supported_formats="PDF",
-        description="Upload a PDF to process.",
-        model_info="granite-vision-3.3-2b",
-    )
-
-    mock_st.expander.assert_called_once_with("How this works")
-    markdown_calls = [c[0][0] for c in mock_st.markdown.call_args_list]
-    assert any("PDF" in c for c in markdown_calls)
-    assert any("Upload a PDF" in c for c in markdown_calls)
-    assert any("granite-vision" in c for c in markdown_calls)
-
-
-@patch("ui_helpers.st")
-def test_show_help_calls_markdown_three_times(mock_st: MagicMock) -> None:
-    show_help(
-        supported_formats="PDF",
-        description="Desc.",
-        model_info="Model.",
-    )
-
-    assert mock_st.markdown.call_count == 3

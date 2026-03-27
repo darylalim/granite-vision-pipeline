@@ -10,9 +10,6 @@ from pipeline import (
 )
 from ui_helpers import (
     load_example,
-    show_help,
-    show_metrics_bar,
-    show_sidebar_status,
     show_upload_preview,
 )
 
@@ -26,17 +23,6 @@ st.title("Multipage QA")
 st.write(
     "Ask questions about document pages using IBM Granite Vision. "
     "Upload a PDF, select 2-8 consecutive pages, then type your question."
-)
-
-show_help(
-    supported_formats="PDF",
-    description=(
-        "Upload a PDF and select 2-8 consecutive pages. "
-        "Type a question and the model will analyze all selected pages "
-        "together to generate an answer. Page images are resized to "
-        "768px max dimension to fit within memory limits."
-    ),
-    model_info="[granite-vision-3.3-2b](https://huggingface.co/ibm-granite/granite-vision-3.3-2b)",
 )
 
 col_upload, col_example = st.columns([3, 1], vertical_alignment="bottom")
@@ -109,10 +95,6 @@ if st.button("Answer", type="primary", disabled=not has_input):
         st.warning("Model produced no output.")
     else:
         st.markdown(answer)
-        show_metrics_bar({"Duration (s)": f"{t.duration_s:.2f}"})
+        st.caption(f"Generated in {t.duration_s:.2f}s")
 
     st.caption("Answers are limited to ~1024 tokens and may be truncated.")
-
-show_sidebar_status(
-    models={"Granite Vision": st.session_state.get("model_granite_vision", False)},
-)
