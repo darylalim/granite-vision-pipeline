@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from ui_helpers import (
     _ExampleFile,
+    clamp_page_range,
     load_example,
     show_upload_preview,
 )
@@ -126,3 +127,30 @@ def test_show_upload_preview_none(mock_st: MagicMock) -> None:
     show_upload_preview(None)
 
     mock_st.caption.assert_not_called()
+
+
+# --- clamp_page_range tests ---
+
+
+def test_clamp_page_range_within_limit() -> None:
+    assert clamp_page_range(1, 5, max_span=8) == (1, 5)
+
+
+def test_clamp_page_range_exact_limit() -> None:
+    assert clamp_page_range(1, 8, max_span=8) == (1, 8)
+
+
+def test_clamp_page_range_exceeds_limit() -> None:
+    assert clamp_page_range(1, 12, max_span=8) == (1, 8)
+
+
+def test_clamp_page_range_single_page() -> None:
+    assert clamp_page_range(5, 5, max_span=8) == (5, 5)
+
+
+def test_clamp_page_range_exceeds_from_middle() -> None:
+    assert clamp_page_range(3, 15, max_span=8) == (3, 10)
+
+
+def test_clamp_page_range_custom_max_span() -> None:
+    assert clamp_page_range(1, 10, max_span=4) == (1, 4)
