@@ -130,10 +130,10 @@ if uploaded_file:
 
         # Reset conversation history if selection changed
         prev_sel = st.session_state.get("prev_selected")
-        if prev_sel != selected:
+        if prev_sel is not None and prev_sel != selected:
             st.session_state["qa_history"] = []
             st.session_state["source_pages"] = []
-            st.session_state["prev_selected"] = selected
+        st.session_state["prev_selected"] = selected
 
 question = st.text_area(
     "Question",
