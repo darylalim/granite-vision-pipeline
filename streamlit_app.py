@@ -9,7 +9,10 @@ from pipeline import (
     timed,
 )
 from ui_helpers import (
+    clamp_page_range,  # noqa: F401
+    format_qa_export,  # noqa: F401
     load_example,
+    render_thumbnail_grid,  # noqa: F401
     show_upload_preview,
 )
 
@@ -52,6 +55,8 @@ if uploaded_file:
     with temp_upload(uploaded_file) as path:
         total_pages = get_pdf_page_count(path)
     uploaded_file.seek(0)
+
+    st.caption(f"{total_pages} pages")
 
     if total_pages < 2:
         st.error("PDF must have at least 2 pages.")
