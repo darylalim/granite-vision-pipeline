@@ -68,7 +68,7 @@ def render_thumbnail_grid(
             page_num = row_start + i + 1  # 1-based
             is_selected = sel_start <= page_num <= sel_end
             container = col.container(border=is_selected)
-            container.image(img, use_container_width=True)
+            container.image(img, width="stretch")
             container.caption(f"Page {page_num}")
 
 

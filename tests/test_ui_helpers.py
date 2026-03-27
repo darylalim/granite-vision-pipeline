@@ -189,7 +189,7 @@ def test_render_thumbnail_grid_displays_all_images(mock_st: MagicMock) -> None:
 
     for i, col in enumerate(mock_cols):
         container = col.container.return_value
-        container.image.assert_called_once_with(images[i], use_container_width=True)
+        container.image.assert_called_once_with(images[i], width="stretch")
 
 
 @patch("ui_helpers.st")

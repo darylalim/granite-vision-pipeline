@@ -235,6 +235,6 @@ if history:
                     page_num = (
                         src_page_list[idx] if idx < len(src_page_list) else idx + 1
                     )
-                    col.image(img, caption=f"Page {page_num}", use_container_width=True)
+                    col.image(img, caption=f"Page {page_num}", width="stretch")
         else:
             st.info("Source pages will appear here after generating an answer.")
