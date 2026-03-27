@@ -127,6 +127,10 @@ if uploaded_file:
         st.caption(f"Pages {clamped[0]}-{clamped[1]} selected ({num_selected} pages)")
 
         selected = list(range(clamped[0], clamped[1] + 1))
+        st.session_state["current_file_name"] = getattr(
+            uploaded_file, "name", "document.pdf"
+        )
+        st.session_state["current_page_range"] = (selected[0], selected[-1])
 
         # Reset conversation history if selection changed
         prev_sel = st.session_state.get("prev_selected")
@@ -198,11 +202,12 @@ if history:
                 st.caption(f"Generated in {duration:.2f}s")
             st.divider()
 
-        # Download button
-        if uploaded_file and selected:
-            file_name = getattr(uploaded_file, "name", "document.pdf")
-            page_range = (selected[0], selected[-1])
-            export_md = format_qa_export(file_name, page_range, history)
+        # Download button — use session state for file metadata so it
+        # persists across reruns even if the uploader widget resets
+        file_name = st.session_state.get("current_file_name", "document.pdf")
+        page_range_export = st.session_state.get("current_page_range")
+        if page_range_export:
+            export_md = format_qa_export(file_name, page_range_export, history)
             st.download_button(
                 "Download Q&A",
                 data=export_md,
@@ -213,6 +218,10 @@ if history:
     with tab_source:
         if source_pages:
             src_cols_per_row = min(4, len(source_pages))
+            page_numbers = st.session_state.get(
+                "current_page_range", (1, len(source_pages))
+            )
+            src_page_list = list(range(page_numbers[0], page_numbers[1] + 1))
             for row_start in range(0, len(source_pages), src_cols_per_row):
                 row_pages = list(
                     enumerate(
@@ -222,7 +231,9 @@ if history:
                 )
                 cols = st.columns(src_cols_per_row)
                 for col, (idx, img) in zip(cols, row_pages):
-                    page_num = selected[idx] if idx < len(selected) else idx + 1
+                    page_num = (
+                        src_page_list[idx] if idx < len(src_page_list) else idx + 1
+                    )
                     col.image(img, caption=f"Page {page_num}", use_container_width=True)
         else:
             st.info("Source pages will appear here after generating an answer.")
