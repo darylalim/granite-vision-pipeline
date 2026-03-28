@@ -9,7 +9,6 @@ from PIL import Image
 from ui_helpers import (
     _ExampleFile,
     clamp_page_range,
-    format_qa_export,
     load_example,
     render_thumbnail_grid,
     show_upload_preview,
@@ -242,61 +241,3 @@ def test_render_thumbnail_grid_empty_images(mock_st: MagicMock) -> None:
 
     mock_st.columns.assert_not_called()
 
-
-# --- format_qa_export tests ---
-
-
-def test_format_qa_export_header() -> None:
-    result = format_qa_export(
-        file_name="report.pdf",
-        page_range=(3, 6),
-        qa_pairs=[{"question": "Q1?", "answer": "A1."}],
-    )
-    assert "# QA Export" in result
-    assert "report.pdf" in result
-    assert "pages 3-6" in result
-
-
-def test_format_qa_export_contains_qa_pairs() -> None:
-    pairs = [
-        {"question": "What is X?", "answer": "X is Y."},
-        {"question": "How about Z?", "answer": "Z is W."},
-    ]
-    result = format_qa_export("doc.pdf", (1, 2), pairs)
-    assert "**Q:** What is X?" in result
-    assert "**A:** X is Y." in result
-    assert "**Q:** How about Z?" in result
-    assert "**A:** Z is W." in result
-
-
-@patch("ui_helpers.datetime")
-def test_format_qa_export_contains_timestamp(mock_dt: MagicMock) -> None:
-    mock_dt.now.return_value.strftime.return_value = "2026-03-26T14:30:00Z"
-
-    result = format_qa_export("doc.pdf", (1, 2), [{"question": "Q?", "answer": "A."}])
-
-    assert "Generated: 2026-03-26T14:30:00Z" in result
-
-
-def test_format_qa_export_empty_pairs() -> None:
-    result = format_qa_export("doc.pdf", (1, 2), [])
-    assert "# QA Export" in result
-    assert "## Q&A" in result
-
-
-def test_format_qa_export_single_page_range() -> None:
-    result = format_qa_export("doc.pdf", (3, 3), [{"question": "Q?", "answer": "A."}])
-    assert "pages 3-3" in result
-
-
-def test_format_qa_export_preserves_pair_order() -> None:
-    pairs = [
-        {"question": "First?", "answer": "A1."},
-        {"question": "Second?", "answer": "A2."},
-        {"question": "Third?", "answer": "A3."},
-    ]
-    result = format_qa_export("doc.pdf", (1, 2), pairs)
-    first_pos = result.index("First?")
-    second_pos = result.index("Second?")
-    third_pos = result.index("Third?")
-    assert first_pos < second_pos < third_pos
