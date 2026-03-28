@@ -39,6 +39,23 @@ with col_example:
 # Resolve files: user upload takes priority over example
 if uploaded_file:
     st.session_state.pop("use_example_qa", None)
+    # Clear stale answer when file changes
+    new_file_id = (
+        f"{getattr(uploaded_file, 'name', '')}_{getattr(uploaded_file, 'size', 0)}"
+    )
+    if st.session_state.get("_upload_file_id") != new_file_id:
+        st.session_state["_upload_file_id"] = new_file_id
+        # Clean up old thumbnail cache
+        old_thumb_key = st.session_state.get("_thumb_key")
+        if old_thumb_key:
+            st.session_state.pop(old_thumb_key, None)
+        for key in (
+            "last_answer",
+            "last_duration_s",
+            "last_source_pages",
+            "last_page_numbers",
+        ):
+            st.session_state.pop(key, None)
 elif st.session_state.get("use_example_qa"):
     uploaded_file = load_example(EXAMPLE_PDF)
     st.caption("Using example file")
@@ -58,7 +75,15 @@ if uploaded_file:
 
     if total_pages > 8:
         # Show page override expander for large PDFs
-        st.caption(f"{total_pages} pages — Pages {selected[0]}-{selected[-1]} selected")
+        # Use persisted slider value if available, otherwise auto-selected default
+        persisted = st.session_state.get("page_range_slider")
+        if isinstance(persisted, tuple) and len(persisted) == 2:
+            display_start, display_end = persisted
+        else:
+            display_start, display_end = selected[0], selected[-1]
+        st.caption(
+            f"{total_pages} pages — Pages {display_start}-{display_end} selected"
+        )
 
         with st.expander("Change pages"):
             # Cache thumbnails in session state
@@ -66,6 +91,7 @@ if uploaded_file:
             file_key = (
                 f"thumbs_{getattr(uploaded_file, 'name', '')}_{total_pages}_{file_size}"
             )
+            st.session_state["_thumb_key"] = file_key
             if file_key not in st.session_state:
                 with temp_upload(uploaded_file) as thumb_path:
                     if total_pages > 50:
