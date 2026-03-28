@@ -52,8 +52,8 @@ Dev (`[dependency-groups] dev`):
 
 ### UI
 
-- `streamlit_app.py` -- single-page app; PDF upload with auto page selection, optional page range picker for >8 page PDFs, text area question input, inline answer and source page display
-- `ui_helpers.py` -- shared UI functions: `show_upload_preview()` for PDF file info, `clamp_page_range()` for page range validation, `render_thumbnail_grid()` for page thumbnail display, `load_example()` for demo mode files; no pipeline imports
+- `streamlit_app.py` -- single-page app; PDF upload with auto page selection, session-state-toggled slider-only page picker for >8 page PDFs, inline question input with "Ask" button, answer card with collapsible source pages
+- `ui_helpers.py` -- shared UI functions: `show_upload_preview()` for PDF file info with page context, `clamp_page_range()` for page range validation, `render_thumbnail_grid()` for page thumbnail display (used in answer card source pages), `load_example()` for demo mode files; no pipeline imports
 - `examples/` -- sample files for demo mode
 
 ### Key Details
@@ -61,12 +61,12 @@ Dev (`[dependency-groups] dev`):
 - Only PDF uploads are supported; the file uploader accepts a single PDF
 - QA accepts 1-8 page images; any PDF with at least 1 page is valid
 - Pages are auto-selected on upload: first N pages where N = min(total_pages, 8)
-- For PDFs with >8 pages, a collapsed "Change pages" expander shows a range slider and thumbnail grid; thumbnails rendered at 72 DPI (batched for PDFs over 50 pages), cached in `st.session_state`
+- For PDFs with >8 pages, a clickable page range button toggles a slider-only picker (no thumbnails); slider state persisted in `st.session_state`
 - For PDFs with 8 or fewer pages, all pages are auto-selected with no picker shown
 - Page images are resized so the longer dimension is 768px to stay within GPU memory limits
 - PDF page count is obtained via `get_pdf_page_count()` without rendering; only selected pages are rendered at full DPI via `render_pdf_pages(page_indices=...)`
-- Answer button is always clickable; validates on click (shows warnings for missing PDF/pages/question) instead of being disabled
-- Single answer displayed inline with source page images below; each new answer replaces the previous one
+- Question input and "Ask" button are hidden until a PDF is uploaded; validates on click (shows warnings for missing pages/question)
+- Answer displayed in a bordered card with metadata footer (generation time + page range); source page thumbnails collapsed by default behind a "Show source pages" toggle; each new answer replaces the previous one
 - Model cached via `st.cache_resource`; model status shown inline via spinner messages
 - "Try with example" button uses `st.session_state` flags and `load_example()` from `ui_helpers.py`; user uploads clear the example flag
 
@@ -76,6 +76,6 @@ Dev (`[dependency-groups] dev`):
 - `tests/test_utils.py` -- `temp_upload()` file creation, cleanup, and exception safety; `timed()` duration measurement
 - `tests/test_pdf.py` -- `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; no model weights required
 - `tests/test_qa.py` -- `resize_for_qa()` dimension and aspect ratio tests; `generate_qa_response()` prompt structure, validation (1-8 images), and delegation to `generate_response()`; no model weights required
-- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_upload_preview()` PDF preview rendering; `clamp_page_range()` range validation and clamping; `render_thumbnail_grid()` column creation, image display, page captions, and selection highlighting
+- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_upload_preview()` file info with page context (>8 pages, ≤8 pages, single page, None); `clamp_page_range()` range validation and clamping; `render_thumbnail_grid()` column creation, image display, page captions, and selection highlighting
 
 Pipeline tests import directly from `pipeline` -- no Streamlit mocking needed. UI helper tests mock `streamlit` via `unittest.mock.patch`.
