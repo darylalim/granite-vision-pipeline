@@ -16,17 +16,36 @@ if TYPE_CHECKING:
     from PIL import Image
 
 
-def show_upload_preview(uploaded_file: object) -> None:
-    """Show preview of an uploaded PDF file (filename and size)."""
+def show_upload_preview(
+    uploaded_file: object,
+    total_pages: int = 0,
+    selected: list[int] | None = None,
+) -> None:
+    """Show file info with page context as a single caption line.
+
+    For >8 page PDFs: ``filename — size · Pages X–Y of Z``
+    For ≤8 page PDFs: ``filename — size · N page(s) — All pages selected``
+    """
     if uploaded_file is None:
         return
 
     name = getattr(uploaded_file, "name", "file")
     size = getattr(uploaded_file, "size", None)
+
+    parts: list[str] = [f"**{name}**"]
     if size is not None:
-        st.caption(f"**{name}**\n{size / 1024:.0f} KB")
-    else:
-        st.caption(f"**{name}**")
+        parts.append(f"{size / 1024:.0f} KB")
+    info = " — ".join(parts)
+
+    if total_pages > 0 and selected:
+        page_start, page_end = selected[0], selected[-1]
+        if total_pages > 8:
+            info += f" · Pages {page_start}–{page_end} of {total_pages}"
+        else:
+            page_word = "page" if total_pages == 1 else "pages"
+            info += f" · {total_pages} {page_word} — All pages selected"
+
+    st.caption(info)
 
 
 class _ExampleFile(io.BytesIO):

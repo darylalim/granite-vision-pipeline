@@ -100,34 +100,52 @@ def test_load_example_with_real_example_file() -> None:
 
 
 @patch("ui_helpers.st")
-def test_show_upload_preview_pdf_with_size(mock_st: MagicMock) -> None:
+def test_show_upload_preview_with_pages_over_8(mock_st: MagicMock) -> None:
     buf = io.BytesIO(b"fake pdf")
     buf.name = "doc.pdf"
     buf.size = 2048  # type: ignore[attr-defined]
 
-    show_upload_preview(buf)
+    show_upload_preview(buf, total_pages=32, selected=[1, 2, 3, 4, 5, 6, 7, 8])
 
     mock_st.caption.assert_called_once()
     caption_arg = mock_st.caption.call_args[0][0]
     assert "doc.pdf" in caption_arg
     assert "2 KB" in caption_arg
+    assert "Pages 1–8 of 32" in caption_arg
 
 
 @patch("ui_helpers.st")
-def test_show_upload_preview_pdf_without_size(mock_st: MagicMock) -> None:
+def test_show_upload_preview_with_pages_8_or_fewer(mock_st: MagicMock) -> None:
     buf = io.BytesIO(b"fake pdf")
     buf.name = "report.pdf"
+    buf.size = 1024  # type: ignore[attr-defined]
 
-    show_upload_preview(buf)
+    show_upload_preview(buf, total_pages=3, selected=[1, 2, 3])
 
     mock_st.caption.assert_called_once()
     caption_arg = mock_st.caption.call_args[0][0]
     assert "report.pdf" in caption_arg
+    assert "3 pages" in caption_arg
+    # Should NOT contain "of" since all pages are selected
+    assert " of " not in caption_arg
+
+
+@patch("ui_helpers.st")
+def test_show_upload_preview_single_page(mock_st: MagicMock) -> None:
+    buf = io.BytesIO(b"fake pdf")
+    buf.name = "one.pdf"
+    buf.size = 512  # type: ignore[attr-defined]
+
+    show_upload_preview(buf, total_pages=1, selected=[1])
+
+    caption_arg = mock_st.caption.call_args[0][0]
+    assert "one.pdf" in caption_arg
+    assert "1 page" in caption_arg
 
 
 @patch("ui_helpers.st")
 def test_show_upload_preview_none(mock_st: MagicMock) -> None:
-    show_upload_preview(None)
+    show_upload_preview(None, total_pages=0, selected=[])
 
     mock_st.caption.assert_not_called()
 
