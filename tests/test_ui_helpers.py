@@ -240,4 +240,3 @@ def test_render_thumbnail_grid_empty_images(mock_st: MagicMock) -> None:
     render_thumbnail_grid([], selected_range=(1, 1), cols_per_row=4)
 
     mock_st.columns.assert_not_called()
-
