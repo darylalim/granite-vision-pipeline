@@ -22,19 +22,15 @@ qa_model = st.cache_resource(create_granite_vision_model)
 EXAMPLE_PDF = "examples/sample.pdf"
 
 st.title("PDF Question & Answer")
-st.write("Upload a PDF, then ask a question.")
 
-col_upload, col_example = st.columns([3, 1], vertical_alignment="bottom")
-with col_upload:
-    uploaded_file = st.file_uploader(
-        "Upload PDF",
-        type=["pdf"],
-        accept_multiple_files=False,
-    )
-with col_example:
-    if st.button("Try with example"):
-        st.session_state["use_example_qa"] = True
-        st.rerun()
+uploaded_file = st.file_uploader(
+    "Upload a PDF to get started",
+    type=["pdf"],
+    accept_multiple_files=False,
+)
+if st.button("Try with example", type="tertiary"):
+    st.session_state["use_example_qa"] = True
+    st.rerun()
 
 # Resolve files: user upload takes priority over example
 if uploaded_file:
@@ -148,47 +144,49 @@ if uploaded_file:
             f"{total_pages} page{'s' if total_pages != 1 else ''} — All pages selected"
         )
 
-question = st.text_area(
-    "Question",
-    placeholder="e.g., What is shown on these pages?",
-    height=100,
-)
+if uploaded_file:
+    col_q, col_btn = st.columns([5, 1], vertical_alignment="bottom")
+    with col_q:
+        question = st.text_input(
+            "Question",
+            placeholder="Ask a question about this PDF...",
+            label_visibility="collapsed",
+        )
+    with col_btn:
+        ask_clicked = st.button("Ask", type="primary", use_container_width=True)
 
-if st.button("Answer", type="primary"):
-    if not uploaded_file:
-        st.warning("Upload a PDF first.")
-        st.stop()
-    if not selected:
-        st.warning("No pages selected.")
-        st.stop()
-    if not question:
-        st.warning("Enter a question first.")
-        st.stop()
+    if ask_clicked:
+        if not selected:
+            st.warning("No pages selected.")
+            st.stop()
+        if not question:
+            st.warning("Enter a question first.")
+            st.stop()
 
-    if not st.session_state.get("model_granite_vision"):
-        spinner_msg = "Loading model and generating answer..."
-    else:
-        spinner_msg = "Generating answer..."
+        if not st.session_state.get("model_granite_vision"):
+            spinner_msg = "Loading model and generating answer..."
+        else:
+            spinner_msg = "Generating answer..."
 
-    with st.spinner(spinner_msg):
-        processor, model = qa_model()
-        st.session_state["model_granite_vision"] = True
+        with st.spinner(spinner_msg):
+            processor, model = qa_model()
+            st.session_state["model_granite_vision"] = True
 
-        with temp_upload(uploaded_file) as tmp_path:
-            page_images = render_pdf_pages(
-                tmp_path, page_indices=[i - 1 for i in selected]
-            )
+            with temp_upload(uploaded_file) as tmp_path:
+                page_images = render_pdf_pages(
+                    tmp_path, page_indices=[i - 1 for i in selected]
+                )
 
-        with timed() as t:
-            answer = generate_qa_response(page_images, question, processor, model)
+            with timed() as t:
+                answer = generate_qa_response(page_images, question, processor, model)
 
-    if not answer:
-        st.warning("Model produced no output.")
-    else:
-        st.session_state["last_answer"] = answer
-        st.session_state["last_duration_s"] = t.duration_s
-        st.session_state["last_source_pages"] = page_images
-        st.session_state["last_page_numbers"] = selected
+        if not answer:
+            st.warning("Model produced no output.")
+        else:
+            st.session_state["last_answer"] = answer
+            st.session_state["last_duration_s"] = t.duration_s
+            st.session_state["last_source_pages"] = page_images
+            st.session_state["last_page_numbers"] = selected
 
 # Display result
 answer = st.session_state.get("last_answer")
