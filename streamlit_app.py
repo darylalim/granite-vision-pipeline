@@ -11,7 +11,6 @@ from pipeline import (
 from ui_helpers import (
     clamp_page_range,
     load_example,
-    render_thumbnail_grid,
     show_upload_preview,
 )
 
@@ -41,10 +40,6 @@ if uploaded_file:
     )
     if st.session_state.get("_upload_file_id") != new_file_id:
         st.session_state["_upload_file_id"] = new_file_id
-        # Clean up old thumbnail cache
-        old_thumb_key = st.session_state.get("_thumb_key")
-        if old_thumb_key:
-            st.session_state.pop(old_thumb_key, None)
         for key in (
             "last_answer",
             "last_duration_s",
@@ -70,75 +65,55 @@ if uploaded_file:
     selected = list(range(1, auto_end + 1))
 
     if total_pages > 8:
-        # Show page override expander for large PDFs
-        # Use persisted slider value if available, otherwise auto-selected default
+        # Use persisted slider value for display, fall back to auto-selected
         persisted = st.session_state.get("page_range_slider")
         if isinstance(persisted, tuple) and len(persisted) == 2:
             display_start, display_end = persisted
         else:
             display_start, display_end = selected[0], selected[-1]
-        st.caption(
-            f"{total_pages} pages — Pages {display_start}-{display_end} selected"
-        )
 
-        with st.expander("Change pages"):
-            # Cache thumbnails in session state
-            file_size = getattr(uploaded_file, "size", 0)
-            file_key = (
-                f"thumbs_{getattr(uploaded_file, 'name', '')}_{total_pages}_{file_size}"
-            )
-            st.session_state["_thumb_key"] = file_key
-            if file_key not in st.session_state:
-                with temp_upload(uploaded_file) as thumb_path:
-                    if total_pages > 50:
-                        all_thumbs: list = []
-                        for batch_start in range(0, total_pages, 20):
-                            batch_end = min(batch_start + 20, total_pages)
-                            batch_indices = list(range(batch_start, batch_end))
-                            all_thumbs.extend(
-                                render_pdf_pages(
-                                    thumb_path, dpi=72, page_indices=batch_indices
-                                )
-                            )
-                        st.session_state[file_key] = all_thumbs
-                    else:
-                        st.session_state[file_key] = render_pdf_pages(
-                            thumb_path, dpi=72
-                        )
-                uploaded_file.seek(0)
-            thumbnails = st.session_state[file_key]
+        picker_key = "show_page_picker"
+        if st.button(
+            f"Pages {display_start}–{display_end} of {total_pages} ✎",
+            type="tertiary",
+            key="page_range_toggle",
+        ):
+            st.session_state[picker_key] = not st.session_state.get(picker_key, False)
+            st.rerun()
 
-            file_id = f"{getattr(uploaded_file, 'name', '')}_{total_pages}_{file_size}"
-            if st.session_state.get("_slider_file_id") != file_id:
-                st.session_state.pop("page_range_slider", None)
-                st.session_state["_slider_file_id"] = file_id
-            slider_key = "page_range_slider"
-            slider_range = st.select_slider(
-                "Select page range",
-                options=list(range(1, total_pages + 1)),
-                value=(1, min(total_pages, 8)),
-                key=slider_key,
-            )
-            if not isinstance(slider_range, tuple):
-                slider_range = (slider_range, slider_range)
-
-            clamped = clamp_page_range(slider_range[0], slider_range[1], max_span=8)
-            if clamped != tuple(slider_range):
-                st.warning(
-                    f"Maximum 8 pages — selection narrowed to pages {clamped[0]}-{clamped[1]}"
+        if st.session_state.get(picker_key, False):
+            with st.container(border=True):
+                st.caption("Select up to 8 pages")
+                file_size = getattr(uploaded_file, "size", 0)
+                file_id = (
+                    f"{getattr(uploaded_file, 'name', '')}_{total_pages}_{file_size}"
                 )
-                st.session_state[slider_key] = clamped
-                st.rerun()
+                if st.session_state.get("_slider_file_id") != file_id:
+                    st.session_state.pop("page_range_slider", None)
+                    st.session_state["_slider_file_id"] = file_id
 
-            cols_per_row = 6 if total_pages > 12 else 4
-            render_thumbnail_grid(
-                thumbnails, selected_range=clamped, cols_per_row=cols_per_row
-            )
+                slider_range = st.select_slider(
+                    "Select page range",
+                    options=list(range(1, total_pages + 1)),
+                    value=(1, min(total_pages, 8)),
+                    key="page_range_slider",
+                    label_visibility="collapsed",
+                )
+                if not isinstance(slider_range, tuple):
+                    slider_range = (slider_range, slider_range)
 
-            selected = list(range(clamped[0], clamped[1] + 1))
-            st.caption(
-                f"Pages {clamped[0]}-{clamped[1]} selected ({len(selected)} pages)"
-            )
+                clamped = clamp_page_range(slider_range[0], slider_range[1], max_span=8)
+                if clamped != tuple(slider_range):
+                    st.warning(
+                        f"Maximum 8 pages — selection narrowed to pages {clamped[0]}–{clamped[1]}"
+                    )
+                    st.session_state["page_range_slider"] = clamped
+                    st.rerun()
+
+                selected = list(range(clamped[0], clamped[1] + 1))
+                st.caption(
+                    f"Pages {clamped[0]}–{clamped[1]} selected ({len(selected)} pages)"
+                )
     else:
         st.caption(
             f"{total_pages} page{'s' if total_pages != 1 else ''} — All pages selected"
