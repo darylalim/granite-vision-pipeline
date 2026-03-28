@@ -28,17 +28,17 @@ def generate_qa_response(
     processor: AutoProcessor,
     model: AutoModelForImageTextToText,
 ) -> str:
-    """Answer a question about multiple consecutive page images.
+    """Answer a question about consecutive page images.
 
-    Accepts 2-8 images. Each image is converted to RGB and resized so the
+    Accepts 1-8 images. Each image is converted to RGB and resized so the
     longer dimension is at most 768px. All images are passed to the model
     in a single conversation turn.
 
-    Raises ValueError if images list has fewer than 2 or more than 8 items.
+    Raises ValueError if images list has fewer than 1 or more than 8 items.
     Returns empty string if the model produces no output.
     """
-    if not (2 <= len(images) <= 8):
-        raise ValueError(f"Expected 2 to 8 images, got {len(images)}")
+    if not (1 <= len(images) <= 8):
+        raise ValueError(f"Expected 1 to 8 images, got {len(images)}")
 
     prepared = [resize_for_qa(img.convert("RGB")) for img in images]
 
