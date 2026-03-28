@@ -1,4 +1,4 @@
-"""Multipage QA using Granite Vision."""
+"""QA using Granite Vision."""
 
 from PIL import Image
 from transformers import AutoModelForImageTextToText, AutoProcessor
