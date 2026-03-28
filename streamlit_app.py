@@ -11,6 +11,7 @@ from pipeline import (
 from ui_helpers import (
     clamp_page_range,
     load_example,
+    render_thumbnail_grid,
     show_upload_preview,
 )
 
@@ -168,23 +169,40 @@ answer = st.session_state.get("last_answer")
 if answer:
     with st.container(border=True):
         st.markdown(answer)
-    duration = st.session_state.get("last_duration_s")
-    if duration is not None:
-        st.caption(f"Generated in {duration:.2f}s")
 
-    source_pages = st.session_state.get("last_source_pages", [])
-    page_numbers = st.session_state.get("last_page_numbers", [])
-    if source_pages:
-        st.divider()
-        cols_per_row = min(4, len(source_pages))
-        for row_start in range(0, len(source_pages), cols_per_row):
-            row_pages = list(
-                enumerate(
-                    source_pages[row_start : row_start + cols_per_row],
-                    start=row_start,
-                )
+        duration = st.session_state.get("last_duration_s")
+        source_pages = st.session_state.get("last_source_pages", [])
+        page_numbers = st.session_state.get("last_page_numbers", [])
+
+        # Footer row: metadata left, toggle right
+        col_meta, col_toggle = st.columns([3, 1])
+        with col_meta:
+            meta_parts: list[str] = []
+            if duration is not None:
+                meta_parts.append(f"{duration:.1f}s")
+            if page_numbers:
+                meta_parts.append(f"Pages {page_numbers[0]}–{page_numbers[-1]}")
+            if meta_parts:
+                st.caption(" · ".join(meta_parts))
+
+        with col_toggle:
+            if source_pages:
+                toggle_key = "show_source_pages"
+                if st.button(
+                    "Hide source pages"
+                    if st.session_state.get(toggle_key)
+                    else "Show source pages",
+                    type="tertiary",
+                    key="source_toggle",
+                ):
+                    st.session_state[toggle_key] = not st.session_state.get(
+                        toggle_key, False
+                    )
+                    st.rerun()
+
+        if source_pages and st.session_state.get("show_source_pages", False):
+            render_thumbnail_grid(
+                source_pages,
+                selected_range=(1, len(source_pages)),
+                cols_per_row=min(6, len(source_pages)),
             )
-            cols = st.columns(cols_per_row)
-            for col, (idx, img) in zip(cols, row_pages):
-                page_num = page_numbers[idx] if idx < len(page_numbers) else idx + 1
-                col.image(img, caption=f"Page {page_num}", width="stretch")
