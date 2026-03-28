@@ -46,6 +46,10 @@ if uploaded_file:
             "last_duration_s",
             "last_source_pages",
             "last_page_numbers",
+            "show_page_picker",
+            "show_source_pages",
+            "page_range_slider",
+            "_slider_file_id",
         ):
             st.session_state.pop(key, None)
 elif st.session_state.get("use_example_qa"):
