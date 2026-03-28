@@ -55,8 +55,6 @@ elif st.session_state.get("use_example_qa"):
 selected: list[int] = []
 
 if uploaded_file:
-    show_upload_preview(uploaded_file)
-
     with temp_upload(uploaded_file) as path:
         total_pages = get_pdf_page_count(path)
     uploaded_file.seek(0)
@@ -64,6 +62,8 @@ if uploaded_file:
     # Auto-select first N pages (N = min(total_pages, 8))
     auto_end = min(total_pages, 8)
     selected = list(range(1, auto_end + 1))
+
+    show_upload_preview(uploaded_file, total_pages=total_pages, selected=selected)
 
     if total_pages > 8:
         # Use persisted slider value for display, fall back to auto-selected
