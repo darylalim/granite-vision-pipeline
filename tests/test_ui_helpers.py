@@ -138,9 +138,54 @@ def test_show_upload_preview_single_page(mock_st: MagicMock) -> None:
 
     show_upload_preview(buf, total_pages=1, selected=[1])
 
+    mock_st.caption.assert_called_once()
     caption_arg = mock_st.caption.call_args[0][0]
     assert "one.pdf" in caption_arg
     assert "1 page" in caption_arg
+    assert "1 pages" not in caption_arg
+
+
+@patch("ui_helpers.st")
+def test_show_upload_preview_includes_all_pages_selected(mock_st: MagicMock) -> None:
+    buf = io.BytesIO(b"fake pdf")
+    buf.name = "small.pdf"
+    buf.size = 1024  # type: ignore[attr-defined]
+
+    show_upload_preview(buf, total_pages=5, selected=[1, 2, 3, 4, 5])
+
+    mock_st.caption.assert_called_once()
+    caption_arg = mock_st.caption.call_args[0][0]
+    assert "All pages selected" in caption_arg
+
+
+@patch("ui_helpers.st")
+def test_show_upload_preview_without_page_args(mock_st: MagicMock) -> None:
+    buf = io.BytesIO(b"fake pdf")
+    buf.name = "doc.pdf"
+    buf.size = 2048  # type: ignore[attr-defined]
+
+    show_upload_preview(buf)
+
+    mock_st.caption.assert_called_once()
+    caption_arg = mock_st.caption.call_args[0][0]
+    assert "doc.pdf" in caption_arg
+    assert "2 KB" in caption_arg
+    assert "Pages" not in caption_arg
+    assert "page" not in caption_arg
+
+
+@patch("ui_helpers.st")
+def test_show_upload_preview_without_size(mock_st: MagicMock) -> None:
+    buf = io.BytesIO(b"fake pdf")
+    buf.name = "nosiz.pdf"
+
+    show_upload_preview(buf, total_pages=10, selected=[1, 2, 3, 4, 5, 6, 7, 8])
+
+    mock_st.caption.assert_called_once()
+    caption_arg = mock_st.caption.call_args[0][0]
+    assert "nosiz.pdf" in caption_arg
+    assert "KB" not in caption_arg
+    assert "Pages 1–8 of 10" in caption_arg
 
 
 @patch("ui_helpers.st")
