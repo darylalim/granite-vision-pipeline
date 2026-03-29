@@ -76,6 +76,6 @@ Dev (`[dependency-groups] dev`):
 - `tests/test_utils.py` -- `temp_upload()` file creation, cleanup, and exception safety; `timed()` duration measurement
 - `tests/test_pdf.py` -- `render_pdf_pages()` with real PDF fixture; `get_pdf_page_count()`; no model weights required
 - `tests/test_qa.py` -- `resize_for_qa()` dimension and aspect ratio tests; `generate_qa_response()` prompt structure, validation (1-8 images), and delegation to `generate_response()`; no model weights required
-- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper attributes; `load_example()` file loading, name, size, seekability, and real example file validation; `show_upload_preview()` file info with page context (>8 pages, ≤8 pages, single page, None); `clamp_page_range()` range validation and clamping; `render_thumbnail_grid()` column creation, image display, page captions, and selection highlighting
+- `tests/test_ui_helpers.py` -- `_ExampleFile` BytesIO wrapper; `load_example()` file loading and seekability; `show_upload_preview()` page context formatting (>8 pages, ≤8 pages, single page, no page args, no size, None); `clamp_page_range()` range validation; `render_thumbnail_grid()` column layout, image display, and selection highlighting
 
 Pipeline tests import directly from `pipeline` -- no Streamlit mocking needed. UI helper tests mock `streamlit` via `unittest.mock.patch`.
